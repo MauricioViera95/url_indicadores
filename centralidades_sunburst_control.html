@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Centralidades del Distrito Metropolitano de Quito</title>
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<style>
+  body { margin:0; padding:0; font-family:Arial, sans-serif; background:#fff; }
+  .wrap { max-width: 1120px; margin:0 auto; padding:12px 14px 18px; }
+  .title { text-align:center; color:#27367c; font-size:22px; font-weight:800; margin: 4px 0 10px 0; }
+  .controls { display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    background:rgba(39,54,124,0.06); border:1px solid rgba(0,0,0,0.08);
+    padding:8px 10px; border-radius:10px; margin: 4px 0 10px 0; }
+  .chip { display:flex; align-items:center; gap:8px; padding:6px 10px;
+    border-radius:20px; background:#fff; border:1px solid rgba(0,0,0,0.15); }
+  .swatch { width:12px; height:12px; border-radius:50%; border:2px solid #fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,0.25) inset; }
+  #chart { width:100%; height:720px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">Centralidades del Distrito Metropolitano de Quito</div>
+
+  <div class="controls">
+    <div><b>Mostrar jerarquías:</b></div>
+    <label class="chip"><span class="swatch" style="background:#B94600"></span><input type="checkbox" id="met" checked> Metropolitana</label>
+    <label class="chip"><span class="swatch" style="background:#446589"></span><input type="checkbox" id="zon" checked> Zonal</label>
+    <label class="chip"><span class="swatch" style="background:#CDAA66"></span><input type="checkbox" id="sec" checked> Sectorial</label>
+  </div>
+
+  <div id="chart"></div>
+</div>
+
+<script>
+(function() {
+  const DATA = {"Metropolitana": [{"nam": "Bicentenario", "n": 1}, {"nam": "Centro Histórico", "n": 1}, {"nam": "La Carolina", "n": 1}, {"nam": "Mariscal", "n": 1}, {"nam": "Quitumbe", "n": 1}], "Zonal": [{"nam": "Calderón", "n": 1}, {"nam": "Carapungo", "n": 1}, {"nam": "Chimbacalle - La Villaflora - La Magdalena", "n": 1}, {"nam": "Conocoto", "n": 1}, {"nam": "Cotocollao - Ofelia", "n": 1}, {"nam": "Cumbayá", "n": 1}, {"nam": "El Ejido - Alameda", "n": 1}, {"nam": "Mitad del Mundo", "n": 1}, {"nam": "Río Coca - Granados", "n": 1}, {"nam": "Solanda - San Bartolo", "n": 1}, {"nam": "Tumbaco", "n": 1}], "Sectorial": [{"nam": "Calderón Histórico", "n": 1}, {"nam": "Comité del Pueblo - San Isidro del Inca", "n": 1}, {"nam": "Guamaní - Turubamba", "n": 1}, {"nam": "La \"Y\"", "n": 1}, {"nam": "La Floresta", "n": 1}, {"nam": "San Patricio", "n": 1}]};
+  const COLORS = { "Metropolitana": "#B94600", "Zonal": "#446589", "Sectorial": "#CDAA66" };
+
+  // --- NUEVO: Salto de línea inteligente ---
+  function wrapLabel(lbl) {
+    if (lbl.includes(" - ")) return lbl.split(" - ").join("<br>");
+    const max = 18;
+    if (lbl.length <= max) return lbl;
+    const words = lbl.split(" ");
+    let line = "", lines = [];
+    for (let w of words) {
+      if ((line + " " + w).trim().length > max) { lines.push(line); line = w; }
+      else line = (line + " " + w).trim();
+    }
+    if (line) lines.push(line);
+    return lines.join("<br>");
+  }
+
+  function buildSunburst(active) {
+    const labels=[], parents=[], values=[], colors=[];
+    function push(label, parent, val, col) { labels.push(label); parents.push(parent); values.push(val); colors.push(col); }
+
+    ["Metropolitana","Zonal","Sectorial"].forEach(j => {
+      if (!active[j]) return;
+      const arr = DATA[j]; if (!arr || arr.length===0) return;
+      const total = arr.reduce((s,o)=>s+(o.n||0),0);
+      push(j, "", total, COLORS[j]);
+      arr.forEach(o => push(wrapLabel(o.nam), j, o.n, COLORS[j]));
+    });
+
+    return [{
+      type:"sunburst",
+      labels, parents, values,
+      branchvalues:"total",
+      marker:{ colors, line:{color:"white", width:2} },
+      textinfo:"label",
+      insidetextorientation:"radial",
+      textfont:{color:"white", size:12},
+      hovertemplate:"<b>%{label}</b><extra></extra>"
+    }];
+  }
+
+  const active = { "Metropolitana": true, "Zonal": true, "Sectorial": true };
+
+  function render() {
+    Plotly.react("chart", buildSunburst(active), {
+      margin:{l:10,r:10,t:10,b:10},
+      uniformtext:{minsize:8,mode:"show"},
+    }, {displayModeBar:false, responsive:true});
+  }
+
+  render();
+  document.getElementById("met").onchange = e => { active.Metropolitana = e.target.checked; render(); }
+  document.getElementById("zon").onchange = e => { active.Zonal = e.target.checked; render(); }
+  document.getElementById("sec").onchange = e => { active.Sectorial = e.target.checked; render(); }
+})();
+</script>
+</body>
+</html>
