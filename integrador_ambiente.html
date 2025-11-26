@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Áreas Naturales DMQ</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+
+<style>
+  :root { 
+    --c-primary: #1A6232;
+    --c-primary-dark: #0f4221;
+    --c-accent: #7cc597;
+    --c-bg: #F9FAFB;
+    --c-card: #ffffff;
+    --c-text: #1f2937;
+    --c-text-muted: #6b7280;
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --radius: 12px;
+  }
+
+  body { margin:0; padding:0; font-family: 'Inter', sans-serif; background: var(--c-bg); color: var(--c-text); }
+  .wrap { max-width:1400px; margin:0 auto; padding: 24px; }
+
+  /* HEADER */
+  .head {
+    padding: 20px 24px;
+    border-radius: var(--radius);
+    background: var(--c-card);
+    box-shadow: var(--shadow-md);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .title-box h1 {
+    margin: 0; font-size: 22px; font-weight: 800; color: var(--c-primary-dark);
+    letter-spacing: -0.5px;
+  }
+
+  /* CONTROLES */
+  .controls { 
+    display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+  }
+  .sel-label {
+    font-size: 13px; font-weight: 500; color: var(--c-text-muted); letter-spacing: 0.2px;
+  }
+  .sel-wrapper {
+    position: relative;
+    display: flex; align-items: center;
+    background: #f3f4f6; border-radius: 8px;
+    padding: 0 12px; border: 1px solid #e5e7eb;
+    transition: all 0.2s;
+  }
+  .sel-wrapper:hover { border-color: var(--c-accent); background: #fff; }
+  .sel-wrapper i { color: var(--c-primary); margin-right: 8px; }
+
+  select {
+    appearance: none; -webkit-appearance: none;
+    border: none; background: transparent;
+    padding: 10px 32px 10px 0;
+    font-family: inherit; font-size: 14px; font-weight: 600; color: var(--c-text);
+    cursor: pointer; outline: none;
+    min-width: 140px; 
+  }
+  .chevron { position: absolute; right: 12px; pointer-events: none; color: var(--c-text-muted); font-size: 12px; }
+
+  /* KPIS */
+  .kpis {
+    margin-top: 20px;
+    display: grid; grid-template-columns: 1fr auto; gap: 20px;
+    background: var(--c-card);
+    border-radius: var(--radius);
+    padding: 16px 24px;
+    box-shadow: var(--shadow-md);
+    align-items: center;
+  }
+  .kpi-content { display: flex; flex-direction: column; gap: 4px; }
+  .kpi-title { font-size: 16px; font-weight: 600; color: var(--c-text); display: flex; align-items: center; gap: 10px;}
+  .kpi-subtitle { font-size: 13px; color: var(--c-text-muted); margin-left: 42px; }
+  .kpi-icon { 
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; 
+    background: #ecfdf5; color: var(--c-primary); border-radius: 8px; flex-shrink:0;
+  }
+
+  .legend-gradient {
+    display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--c-text-muted);
+  }
+  .grad-bar {
+    width: 100px; height: 8px; border-radius: 4px;
+    background: linear-gradient(90deg, #1a6232 0%, #8dc69f 100%);
+  }
+
+  .content {
+    display: grid; grid-template-columns: 1fr 320px; gap: 24px; margin-top: 20px;
+  }
+  @media (max-width: 1024px){ .content { grid-template-columns: 1fr; } }
+
+  #chart-container {
+    background: var(--c-card); border-radius: var(--radius);
+    padding: 16px; box-shadow: var(--shadow-md);
+    min-height: 600px;
+  }
+  #chart { width: 100%; height: 100%; min-height: 700px; }
+
+  .panel {
+    background: var(--c-card); border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    padding: 24px;
+    height: fit-content;
+    position: sticky; top: 20px;
+  }
+  .panel-header { text-align: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #f3f4f6; }
+  .panel-header h3 { margin: 0; color: var(--c-primary-dark); font-size: 16px; line-height: 1.4; }
+  .panel-icon { font-size: 24px; color: var(--c-accent); margin-bottom: 8px; display: block; }
+
+  .chip {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px;
+    background: #F3FAF6; border: 1px solid #E6F4EA;
+    border-radius: 8px; margin-bottom: 8px;
+    font-size: 13px; color: #374151;
+  }
+  .chip i { color: var(--c-primary); margin-top: 3px; width: 14px; text-align: center;}
+  .chip b { color: var(--c-primary-dark); font-weight: 700; margin-right: 4px; }
+
+  .hint { 
+    text-align: center; color: var(--c-text-muted); 
+    font-size: 14px; font-style: normal; 
+    padding: 20px 0; line-height: 1.5;
+  }
+
+  /* Override Tooltip Fonts */
+  .hovertext text { font-family: 'Inter', sans-serif !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="title-box">
+      <h1 id="page_title"></h1>
+    </div>
+    <div class="controls">
+      <span class="sel-label">Seleccione las opciones</span>
+      <div class="sel-wrapper">
+        <i class="fa-solid fa-layer-group"></i>
+        <select id="tema">
+          <option value="SNAP">SNAP</option>
+          <option value="PATRIMONIO">PFN</option>
+          <option value="SPACUSP">SPACUSP</option>
+          <option value="SMANP">SMANP</option>
+        </select>
+        <i class="fa-solid fa-chevron-down chevron"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi-content">
+      <div class="kpi-title" id="kpi_title">Cargando...</div>
+      <div class="kpi-subtitle" id="kpi_sub">...</div>
+    </div>
+    <div class="legend-gradient">
+      <span>+ Área</span>
+      <div class="grad-bar"></div>
+      <span>- Área</span>
+    </div>
+  </div>
+
+  <div class="content">
+    <div id="chart-container">
+      <div id="chart"></div>
+    </div>
+    <div class="panel" id="panel">
+      <div class="panel-header">
+        <i class="fa-solid fa-circle-info panel-icon"></i>
+        <h3 id="panel_title">Detalle</h3>
+      </div>
+      <div id="panel_body" class="hint">
+        <i class="fa-regular fa-hand-pointer" style="font-size:24px; margin-bottom:10px; color:var(--c-accent);"></i><br>
+        Da clic sobre una barra para más información
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const DATA = {"title": "Áreas Naturales Protegidas del Distrito Metropolitano de Quito", "SNAP": {"rows": [{"nam": "Cayambe Coca", "superf_ha": 9099.07945897, "map": "Parque nacional", "ror": "Decreto supremo No. 818 del 17/11/1970 - Registro Oficial No. 104 del 20/11/1970", "rom": "Registro Oficial No. 69 del 20 de noviembre de 1979; Registro Oficial No. 283 del 21 de septiembre de 2010", "own": "Estatal"}, {"nam": "Ponce Paluguillo", "superf_ha": 4288.09054899, "map": "Refugio de vida silvestre - Área de protección hídrica", "ror": "Acuerdo Ministerial No. MAATE- 2023-040 del 15/05/2023", "rom": "Sin modificación", "own": "Privado"}, {"nam": "Pululahua", "superf_ha": 3441.09214824, "map": "Reserva geobotánica", "ror": "Decreto No. 194 del 28/01/1966 - Registro Oficial No. 715 del 21/03/1966", "rom": "Registro Oficial No. 536 del 01 de marzo de 1978; Registro Oficial No. 181 del 08 de mayo de 1985", "own": "Estatal"}, {"nam": "Mashpi Tayra", "superf_ha": 1229.48415705, "map": "Refugio de vida silvestre", "ror": "Acuerdo Ministerial No. 001 del 14/03/ 2023", "rom": "Sin modificación", "own": "Privado"}, {"nam": "Bellavista", "superf_ha": 268.52664841, "map": "Área protegida privada", "ror": "Acuerdo Ministerial No. 062 del  26/06/2019", "rom": "Sin modificación", "own": "Privado"}]}, "PATRIMONIO": {"rows": [{"nam": "Flanco Oriental de Pichincha y Cinturón Verde de Quito", "superf_ha": 36326.16340535, "ror": "Registro Oficial No. 514 del 15 de junio de 1983, con Acuerdo Ministerial No. 162 del 08 de junio de 1983", "rom": "Modificado Registro Oficial No. 603 del 07 de octubre de 2015, con Acuerdo Ministerial No. 131 del 07 de septiembre del 2015", "own": "Estatal"}, {"nam": "Cuenca Río Guayllabamba  (Área 1 - Área 2)", "superf_ha": 15064.27478032, "ror": "Registro Oficial No. 213 del 16 de junio de 1989 con Resolución Ministerial No. 226 del 7 de junio de 1989", "rom": null, "own": "Estatal"}, {"nam": "Subcuenca del Río Tambo, Tamboyacu, Antisana, Pita, Cinto, Saloya, Pichan y Qda.", "superf_ha": 12636.89918763, "ror": "Registro Oficial No. 473 del 30 de junio de 1994 con Resolucion INEFAN No. 25 del 26 de abril de 1994", "rom": null, "own": "Estatal"}, {"nam": "Mindo Nambillo", "superf_ha": 10990.45686502, "ror": "Registro Oficial No. 921 del 25 de abril de 1988 con Resolución Ministerial No. 118 de 12 de abril de 1988", "rom": null, "own": "Mixto"}, {"nam": "Paso Alto", "superf_ha": 4138.10974398, "ror": "Registro Oficial No. 370 del 25 enero de 2011", "rom": null, "own": "Estatal"}, {"nam": "Cambugan", "superf_ha": 4115.00326786, "ror": "Registro Oficial No. 379 del 30 julio de 2001 con Resolución Ministerial No. 5 del 22 junio de 2001", "rom": null, "own": "Privado"}, {"nam": "Santa Rosa y Yasquel", "superf_ha": 2597.23407773, "ror": "Registro Oficial No. 616 del 2 de febrero de 1987 con Resolución Ministerial No. 6", "rom": null, "own": "Privado"}, {"nam": "Maquipucuna", "superf_ha": 2474.18223608, "ror": "Registro Oficial No. 132 del 20 de febrero de 1989 con Resolución Ministerial No. 62 del 10 de febrero de 1989", "rom": null, "own": "Privado"}, {"nam": "Tanlahua y Ampliación", "superf_ha": 1861.78422615, "ror": "Registro Oficial No. 808 del 24 de octubre de 1995 con Resolución Ministerial No. 11 del 7 de abril de 1995", "rom": null, "own": "Privado"}, {"nam": "Toaza", "superf_ha": 1246.9070874, "ror": "Registro Oficial No. 112 del 19 de febrero de 1989 con Resolución Ministerial No. 103 del 10 de febrero de 1989", "rom": null, "own": "Privado"}, {"nam": "Mashpi", "superf_ha": 1178.67031058, "ror": "Registro Oficial No. 439 del 11 de octubre de 2004 con Resolución Ministerial No. 88  del 16 de septiembre de 2004", "rom": null, "own": "Privado"}, {"nam": "Hacienda Piganta", "superf_ha": 953.1431847, "ror": "Registro Oficial No. 33 del 26 de septiembre de 1984 con Resolución Ministerial No. 432 de agosto de 1984", "rom": null, "own": "Privado"}, {"nam": "Mojanda Grande", "superf_ha": 794.94923855, "ror": "Registro Oficial No. 617 del 23 de enero de 1995 con Resolución Ministerial No. 47 del 22 de septiembre de 1994", "rom": null, "own": "Privado"}, {"nam": "San Carlos de Yanahurco", "superf_ha": 645.15156893, "ror": "Registro Oficial No. 495 del 7 de agosto de 1986 con Resolución Ministerial No. 257 del 13 de julio de 1986", "rom": null, "own": "Privado"}, {"nam": "Predio Pacay", "superf_ha": 519.08006313, "ror": "Registro Oficial No. 308 del 26 de octubre de 2010 con Resolución Ministerial No. 151 del 1 de septiembre de 2010", "rom": null, "own": "Privado"}, {"nam": "Animanga o Taminanga Grande", "superf_ha": 400.30715753, "ror": "Registro Oficial No. 17 del 4 septiembre de 1979 con Resolución Ministerial No. 4 del 28 agosto de 1979", "rom": null, "own": "Privado"}, {"nam": "La Paz y San José de Quijos", "superf_ha": 399.02818609, "ror": "Registro Oficial No. 187 del 16 de mayo de 1985 con Resolución Ministerial No. 142 del 3 de mayo de 1985", "rom": null, "own": "Privado"}, {"nam": "Caracha", "superf_ha": 260.40965002, "ror": "Registro Oficial No. 614 del 29 enero de 1987 con Resolución Ministerial No. 1 del 6 enero de 1987", "rom": null, "own": "Privado"}, {"nam": "Jerusalén", "superf_ha": 122.91793287, "ror": "Registro Oficial No. 227 del 6 de julio de 1989 con Resolución Ministerial No. 244 del 29 de junio de 1989", "rom": null, "own": "Mixto"}, {"nam": "Chilcapamba y Aromapamba", "superf_ha": 89.54559206, "ror": "Registro Oficial No. 476 del 10 de julio de 1990 con Resolución Ministerial No. 401 del 3 de julio de 1990", "rom": null, "own": "Privado"}, {"nam": "Tulipa Pachijal", "superf_ha": 73.86041461, "ror": "Registro Oficial No. 63 del 10 de noviembre de 2009", "rom": null, "own": "Estatal"}, {"nam": "Hacienda San Eloy", "superf_ha": 36.58898217, "ror": "Registro Oficial No. 654 del 7 de octubre de 1974 con Resolución Ministerial No. 610 del 19 de septiembre de 1974", "rom": null, "own": "Privado"}, {"nam": "Pishashi", "superf_ha": 32.65490934, "ror": "Registro Oficial No. 335 del 13 de diciembre de 1993 con Resolución Ministerial No. 36 del 9 de noviembre de 1993", "rom": null, "own": "Privado"}, {"nam": "San Segundo", "superf_ha": 28.91639303, "ror": "Registro Oficial No. 22 del 09 de septiembre de 1998", "rom": "Modificatoria Registro Oficial 261 24 de agosto de 1999", "own": "Privado"}, {"nam": "Cushnirumi (San Alberto)", "superf_ha": 8.48255155, "ror": "Registro Oficial No. 471 del 28 de junio de 1994 con Resolución Ministerial No. 3 del 18 de enero de 1994", "rom": null, "own": "Privado"}]}, "SPACUSP": {"rows": [{"nam": "Chocó Andino Sur", "superf_ha": 40269.45094193}, {"nam": "Ruta del Cóndor", "superf_ha": 39497.61208846}, {"nam": "Bosque Seco Andino", "superf_ha": 2620.09162105}]}, "SMANP": {"all": [{"nam": "Cerro Puntas", "superf_ha": 28149.92748182, "catg_prote": "Áreas de protección de humedales (APH)", "ref_legal": "Ordenanza Nro. 0010", "fecha_apro": "26/08/2014", "fecha_actu": "13/03/2022", "estado_apr": "Aprobado"}, {"nam": "Mojanda-Cambugan", "superf_ha": 27363.99744972, "catg_prote": "Áreas de conservación y uso sustentable (ACUS)", "ref_legal": "Ordenanza Nro.001 (ORD-001-2022-APA-ACUS)", "fecha_apro": "22/02/2022", "fecha_actu": "13/03/2022", "estado_apr": "Aprobado"}, {"nam": "Pichincha-Atacazo", "superf_ha": 22329.07895211, "catg_prote": "Áreas de intervención especial y recuperación (AIER)", "ref_legal": "Ordenanza Nro. 446", "fecha_apro": "14/10/2013", "fecha_actu": "13/03/2022", "estado_apr": "Aprobado"}, {"nam": "Sistema Hídrico y Arqueológico Pachijal", "superf_ha": 21465.7928252, "catg_prote": "Áreas de conservación y uso sustentable (ACUS)", "ref_legal": "Ordenanza Nro. 264", "fecha_apro": "02/07/2012", "fecha_actu": "13/03/2022", "estado_apr": "Aprobado"}, {"nam": "Mashpi, Guaycuyacu Saguangal", "superf_ha": 19985.41958103, "catg_prote": "Áreas de conservación y uso sustentable (ACUS)", "ref_legal": "Ordenanza Nro. 088", "fecha_apro": "22/06/2011", "fecha_actu": "13/03/2022", "estado_apr": "Aprobado"}, {"nam": "Camino de los Yumbos", "superf_ha": 18445.42666304, "catg_prote": "Áreas de conservación y uso sustentable (ACUS)", "ref_legal": "Ordenanza de Áreas de Protección Ambiental Nro. 001", "fecha_apro": "09/05/2019", "fecha_actu": "13/03/2022", "estado_apr": "Aprobado"}, {"nam": "Ilaló", "superf_ha": 6873.51606276, "catg_prote": "Áreas de intervención especial y recuperación (AIER)", "ref_legal": "N/A", "fecha_apro": "31/12/1969", "fecha_actu": "31/12/1969", "estado_apr": "Propuesto"}, {"nam": "Bosque Seco Jalunguilla", "superf_ha": 3050.38716754, "catg_prote": "Santuario de vida silvestre (SVS)", "ref_legal": "N/A", "fecha_apro": "31/12/1969", "fecha_actu": "31/12/1969", "estado_apr": "Propuesto"}, {"nam": "Yunguilla", "superf_ha": 2979.80580638, "catg_prote": "Áreas de conservación y uso sustentable (ACUS)", "ref_legal": "Ordenanza Nro. 0409", "fecha_apro": "11/07/2013", "fecha_actu": "13/03/2022", "estado_apr": "Aprobado"}, {"nam": "Catequilla", "superf_ha": 2434.38832312, "catg_prote": "Áreas de intervención especial y recuperación (AIER)", "ref_legal": "N/A", "fecha_apro": "31/12/1969", "fecha_actu": "31/12/1969", "estado_apr": "Propuesto"}]}};
+  document.getElementById("page_title").textContent = DATA.title;
+
+  const THEME_CFG = {
+    "SNAP": { 
+        label: "Sistema Nacional de Áreas Protegidas (SNAP)", 
+        icon: '<i class="fa-solid fa-earth-americas kpi-icon"></i>' 
+    },
+    "PATRIMONIO": { 
+        label: "Patrimonio Forestal Nacional (PFN)", 
+        icon: '<i class="fa-solid fa-tree kpi-icon"></i>' 
+    },
+    "SPACUSP": { 
+        label: "Sistema Provincial de Áreas de Conservación y Uso Sustentable de Pichincha (SPACUSP)", 
+        icon: '<i class="fa-solid fa-mountain-city kpi-icon"></i>' 
+    },
+    "SMANP": { 
+        label: "Subsistema Metropolitano de Áreas Naturales Protegidas del Distrito Metropolitano de Quito (SMANP)", 
+        icon: '<i class="fa-solid fa-shield-cat kpi-icon"></i>' 
+    }
+  };
+
+  function paletteStops(){ return [[26,98,50],[141,198,159]]; } 
+
+  const temaSel = document.getElementById("tema");
+  const panelTitle= document.getElementById("panel_title");
+  const panelBody = document.getElementById("panel_body");
+
+  function fmtHa(x){
+    return x ? x.toLocaleString("es-EC",{minimumFractionDigits:1, maximumFractionDigits:1}) + " ha" : "0 ha";
+  }
+
+  function getRows(t){
+    if(t==="SNAP") return DATA.SNAP.rows||[];
+    if(t==="PATRIMONIO") return DATA.PATRIMONIO.rows||[];
+    if(t==="SPACUSP") return DATA.SPACUSP.rows||[];
+    if(t==="SMANP") return DATA.SMANP.all||[];
+    return [];
+  }
+
+  function updateKPI(theme){
+    const rows = getRows(theme);
+    const count = rows.length;
+    const total = rows.reduce((a,b)=>a+(b.superf_ha||0),0);
+    const cfg = THEME_CFG[theme];
+
+    document.getElementById("kpi_title").innerHTML = `${cfg.icon} ${cfg.label}`;
+    document.getElementById("kpi_sub").innerHTML = `Registros: <b>${count}</b> | Superficie acumulada total: <b>${fmtHa(total)}</b>`;
+  }
+
+  function roundBars(highlightName){
+    const chart = document.getElementById("chart");
+    const bars = chart.querySelectorAll(".bar-layer path.point, .bar-layer path");
+
+    bars.forEach(bar => {
+       const computedStyle = window.getComputedStyle(bar);
+       const fill = computedStyle.fill || bar.style.fill;
+       bar.style.stroke = fill;
+       bar.style.strokeWidth = "6px"; 
+       bar.style.strokeLinejoin = "round"; 
+       bar.style.paintOrder = "stroke"; 
+    });
+  }
+
+  function buildBar(rows, highlightName=null){
+    const y = rows.map(r=>r.nam);
+    const x = rows.map(r=>+r.superf_ha||0);
+    const n = rows.length;
+    const base = paletteStops();
+
+    const colors = [];
+    for(let i=0; i<n; i++){
+       const t = n>1 ? i/(n-1) : 0;
+       const r = Math.round(base[0][0] + (base[1][0]-base[0][0])*t);
+       const g = Math.round(base[0][1] + (base[1][1]-base[0][1])*t);
+       const b = Math.round(base[0][2] + (base[1][2]-base[0][2])*t);
+       colors.push(`rgb(${r},${g},${b})`);
+    }
+
+    const finalColors = y.map((nm, i) => {
+        if(highlightName && nm !== highlightName) return "#e5e7eb"; 
+        return colors[i];
+    });
+
+    const textColors = y.map((nm, i) => {
+         if(highlightName && nm !== highlightName) return "#9ca3af"; 
+         return "#FFFFFF"; 
+    });
+
+    const trace = {
+      type: "bar", orientation: "h",
+      x: x, y: y,
+      customdata: y,
+      marker: {
+        color: finalColors,
+        line: { width: 0 }, 
+        opacity: 1
+      },
+      text: x.map(v=>fmtHa(v)),
+      textposition: "auto", 
+      insidetextanchor: "end",
+      textfont: { family: "Inter, sans-serif", size: 12, color: textColors },
+
+      // --- CAMBIO: TOOLTIP GRIS TENUE (LIGHT THEME) ---
+      hoverlabel: {
+        bgcolor: "#F9FAFB",       // Fondo gris muy claro (tenue)
+        bordercolor: "#D1D5DB",   // Borde gris sutil
+        font: { family: "Inter, sans-serif", size: 13, color: "#1F2937" }, // Texto oscuro
+        align: "left"
+      },
+      // Template ajustado para fondo claro (textos oscuros)
+      hovertemplate: 
+        "<span style='font-size:13px; color:#111827; font-weight:600'>%{customdata}</span><br>" +
+        "<span style='font-size:12px; color:#6B7280'>Superficie:</span> " +
+        "<span style='font-size:13px; color:#111827'>%{x:,.1f} ha</span><extra></extra>"
+    };
+
+    const layout = {
+      margin: {l: 220, r: 40, t: 20, b: 40},
+      height: Math.max(550, rows.length * 35 + 100),
+      xaxis: { 
+        automargin: true, gridcolor: "#f3f4f6", zeroline: false,
+        tickfont: {family:"Inter", size:11, color:"#6b7280"}
+      },
+      yaxis: { 
+        automargin: true, autorange: "reversed",
+        tickfont: {family:"Inter", size:12, color: "#374151"},
+      },
+      dragmode: false,
+      paper_bgcolor: "rgba(0,0,0,0)",
+      plot_bgcolor: "rgba(0,0,0,0)"
+    };
+
+    return {data:[trace], layout};
+  }
+
+  function renderPanel(theme, row){
+    if(!row){
+      panelTitle.textContent = "Detalle";
+      panelBody.innerHTML = `
+        <div class='hint'>
+          <i class="fa-regular fa-hand-pointer" style="font-size:24px; margin-bottom:10px; color:var(--c-accent);"></i><br>
+          Da clic sobre una barra para más información
+        </div>`;
+      return;
+    }
+    panelTitle.textContent = row.nam;
+    let html = "";
+    const mkChip = (icon, label, val) => 
+       `<div class="chip"><i class="${icon}"></i><div><b>${label}:</b> ${val}</div></div>`;
+
+    if(theme==="SNAP"){
+       if(row.map) html += mkChip("fa-solid fa-map", "Mapa", row.map);
+       if(row.ror) html += mkChip("fa-solid fa-file-contract", "ROR", row.ror);
+       if(row.rom) html += mkChip("fa-solid fa-book", "ROM", row.rom);
+       if(row.own) html += mkChip("fa-solid fa-user-tag", "Propiedad", row.own);
+    }
+    else if(theme==="PATRIMONIO"){
+       if(row.ror) html += mkChip("fa-solid fa-file-contract", "ROR", row.ror);
+       if(row.own) html += mkChip("fa-solid fa-user-tag", "Propiedad", row.own);
+    }
+    else if(theme==="SPACUSP"){
+       html += mkChip("fa-solid fa-ruler-combined", "Superficie", fmtHa(row.superf_ha));
+    }
+    else if(theme==="SMANP"){
+       if(row.catg_prote) html += mkChip("fa-solid fa-tag", "Categoría", row.catg_prote);
+       if(row.ref_legal)  html += mkChip("fa-solid fa-gavel", "Ref. Legal", row.ref_legal);
+       if(row.fecha_apro) html += mkChip("fa-regular fa-calendar-check", "Aprobación", row.fecha_apro);
+       if(row.estado_apr) html += mkChip("fa-solid fa-check-double", "Estado", row.estado_apr);
+    }
+    panelBody.innerHTML = html || "<div class='hint'>Sin datos adicionales</div>";
+  }
+
+  let currentTheme = "SNAP";
+  let currentHighlight = null;
+
+  function render(){
+    updateKPI(currentTheme);
+    const rows = getRows(currentTheme);
+    const fig = buildBar(rows, currentHighlight);
+
+    const config = {displayModeBar: false, responsive: true};
+    Plotly.react("chart", fig.data, fig.layout, config).then(()=>{
+        setTimeout(() => roundBars(currentHighlight), 50);
+    });
+
+    const chart = document.getElementById("chart");
+    chart.removeAllListeners('plotly_click');
+    chart.on('plotly_click', data => {
+       const pt = data.points[0];
+       const name = pt.customdata;
+
+       if(currentHighlight === name) currentHighlight = null;
+       else currentHighlight = name;
+
+       const r = getRows(currentTheme).find(x=>x.nam === (currentHighlight || ""));
+       renderPanel(currentTheme, r);
+       render();
+    });
+  }
+
+  render();
+
+  temaSel.addEventListener("change", (e)=>{
+    currentTheme = e.target.value;
+    currentHighlight = null;
+    renderPanel(currentTheme, null);
+    render();
+  });
+
+  window.addEventListener("resize", ()=> setTimeout(()=>roundBars(currentHighlight), 200));
+
+})();
+</script>
+</body>
+</html>
