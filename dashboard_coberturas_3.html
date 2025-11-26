@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dashboard de Coberturas</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<style>
+  :root { 
+    --c-brand: #2050B8; 
+    --c-rural: #62937F; /* Nuevo Rural */
+    --c-urbano: #DD835D; /* Nuevo Urbano */
+    --c-highlight: #FFC107; 
+    --c-bg: #F8F9FA; 
+    --c-card: #ffffff;
+    --c-text: #212529; 
+    --c-text-light: #6C757D; 
+    --radius: 12px;
+    --shadow: 0 6px 12px rgba(0,0,0,0.08); 
+    --shadow-hover: 0 8px 16px rgba(0,0,0,0.12);
+  }
+  body { margin:0; padding:0; font-family:'Inter', sans-serif; background:var(--c-bg); color:var(--c-text); }
+  .wrap { max-width:1400px; margin:0 auto; padding:24px; }
+
+  /* Header y Filtros */
+  .head { 
+    display:flex; justify-content:space-between; align-items:center; 
+    margin-bottom:24px; background:var(--c-card); padding:20px; 
+    border-radius:var(--radius); box-shadow:var(--shadow);
+    border-left: 6px solid var(--c-brand);
+  }
+  .filters-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+  }
+  .filter-card {
+    background: var(--c-card); padding: 16px; border-radius: 10px; box-shadow: var(--shadow);
+  }
+  .filter-label { font-size: 13px; font-weight: 600; color: var(--c-text-light); margin-bottom: 8px; display: block; text-transform: uppercase;}
+  select {
+    width: 100%; padding: 10px; border: 1px solid #CED4DA; border-radius: 8px;
+    font-family: inherit; font-size: 14px; outline: none; cursor: pointer; background: #E9ECEF;
+    color: var(--c-text);
+  }
+
+  /* KPIs */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--c-card); padding: 24px; border-radius: var(--radius); box-shadow: var(--shadow);
+    display: flex; align-items: center; gap: 20px; transition: all 0.2s ease-in-out;
+  }
+  .kpi-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
+
+  .kpi-icon {
+    width: 60px; height: 60px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+  }
+  .kpi-blue { background: #E0EBF7; color: var(--c-brand); }
+  .kpi-green { background: #DFF0D8; color: #28A745; }
+  .kpi-highlight { background: #FFF3CD; color: #FFC107; }
+
+  .kpi-info h3 { margin: 0; font-size: 15px; color: var(--c-text-light); font-weight: 600; }
+  .kpi-info .num { font-size: 32px; font-weight: 800; color: var(--c-text); letter-spacing: -1px; margin-top: 4px; }
+  .kpi-info .sub { font-size: 13px; color: #ADB5BD; margin-top: 4px; }
+
+  /* Grid Contenedor Principal: Modificado para 3 columnas para manejar los nuevos gráficos */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3 columnas */
+    gap: 20px;
+    margin-top: 24px;
+  }
+  .chart-box {
+    background: var(--c-card); 
+    padding: 20px; 
+    border-radius: var(--radius); 
+    box-shadow: var(--shadow);
+    grid-column: span 1; /* Por defecto ocupa 1 columna */
+  }
+
+  .chart-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--c-brand);
+      margin-bottom: 15px;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #EEE;
+  }
+
+  /* CLASES DE LAYOUT DINÁMICO */
+  .col-span-2 { grid-column: span 2; } /* Ocupa 2 columnas */
+  .col-span-3 { grid-column: span 3; } /* Ocupa 3 columnas (full width) */
+  .hidden { display: none !important; }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1><i class="fa-solid fa-layer-group"></i> Cobertura de Servicios</h1>
+      <p>Análisis de Infraestructura por Clasificación de Suelo</p>
+    </div>
+  </div>
+
+  <div class="filters-container">
+    <div class="filter-card">
+        <span class="filter-label">Fuente de Información</span>
+        <select id="sel_source">
+          <option value="EPMAPS">EPMAPS (Agua y Alcantarillado)</option>
+          <option value="EEQ">EEQ (Energía Eléctrica)</option>
+        </select>
+    </div>
+    <div class="filter-card">
+        <span class="filter-label">Clasificación del Suelo</span>
+        <select id="sel_clasificacion">
+          <option value="TOTAL">DMQ (Total)</option>
+          <option value="URBANO">Urbano</option>
+          <option value="RURAL">Rural</option>
+        </select>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis_container">
+    </div>
+
+  <div class="chart-grid" id="chart_grid">
+
+    <div class="chart-box col-span-2 hidden" id="chart_redes_alcant_box">
+        <div class="chart-title"><i class="fa-solid fa-faucet-drip"></i> Redes Alcantarillado (Planificadas vs Ejecutadas)</div>
+        <div id="chart_redes_alcant" style="width:100%; height:300px;"></div>
+    </div>
+    <div class="chart-box hidden" id="chart_red_alcant_principal_box">
+        <div class="chart-title"><i class="fa-solid fa-water"></i> Red Alcantarillado Principal (Total)</div>
+        <div id="chart_red_alcant_principal" style="width:100%; height:300px;"></div>
+    </div>
+
+    <div class="chart-box col-span-2 hidden" id="chart_redes_ap_box">
+        <div class="chart-title"><i class="fa-solid fa-pipe"></i> Redes Agua Potable (Planificadas vs Ejecutadas)</div>
+        <div id="chart_redes_ap" style="width:100%; height:300px;"></div>
+    </div>
+    <div class="chart-box hidden" id="chart_tanques_box">
+        <div class="chart-title"><i class="fa-solid fa-database"></i> Tanques de Almacenamiento (Unidades)</div>
+        <div id="chart_tanques" style="width:100%; height:300px;"></div>
+    </div>
+
+    <div class="chart-box hidden" id="chart_plantas_mayor_box">
+        <div class="chart-title" id="title_plantas_mayor"><i class="fa-solid fa-industry"></i> Plantas de Tratamiento y PTAR</div>
+        <div id="chart_plantas_mayor" style="width:100%; height:300px;"></div>
+    </div>
+    <div class="chart-box hidden" id="chart_lineal_eeq_box">
+        <div class="chart-title"><i class="fa-solid fa-route"></i> Redes Eléctricas (Franjas y Tramos)</div>
+        <div id="chart_lineal_eeq" style="width:100%; height:300px;"></div>
+    </div>
+
+    <div class="chart-box hidden" id="chart_puntual_masivo_box">
+        <div class="chart-title" id="title_masivo_eeq"><i class="fa-solid fa-map-pin"></i> Postes de Distribución</div>
+        <div id="chart_puntual_masivo" style="width:100%; height:300px;"></div>
+    </div>
+
+    <div class="chart-box hidden" id="chart_puntual_mayor_eeq_box">
+        <div class="chart-title" id="title_mayor_eeq"><i class="fa-solid fa-gem"></i> Subestaciones y Puntos de Carga</div>
+        <div id="chart_puntual_mayor_eeq" style="width:100%; height:300px;"></div>
+    </div>
+    <div class="chart-box col-span-3 hidden" id="table_box">
+      <div class="chart-title"><i class="fa-solid fa-table-list"></i> Detalle de Conteo (Unidades y Kilómetros)</div>
+      <div id="detail_table" style="padding: 10px;">
+        <table style="width:100%; border-collapse:collapse;"></table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  const DB = {"title": "Cobertura de Servicios por Clasificación de Suelo", "global_kpis": {"AreaKm2": {"URBANO": 423.6922561, "RURAL": 3777.2380318727637, "TOTAL": 4200.930287968353}, "DensityUrbano": 501.3426536402538, "DensityRural": 16.2632059408612, "TotalUnidades": 273845.0, "TotalKm": 10686.308447139772}, "data": {"EPMAPS": {"REDES": {"Redes AP Planificadas (Km)": {"URBANO": 387.45245105560946, "RURAL": 954.6391667172909, "TOTAL": 1342.0916177729005}, "Redes AP en Ejecución (Km)": {"URBANO": 6.820301369659175, "RURAL": 78.94174437, "TOTAL": 85.76204573636397}, "Redes Alcantarillado Planif. (Km)": {"URBANO": 845.8114192418363, "RURAL": 999.4891497535277, "TOTAL": 1845.300568995364}, "Redes Alcantarillado Ejec. (Km)": {"URBANO": 61.71013900439135, "RURAL": 45.61537017015779, "TOTAL": 107.32550917454914}, "Red Alcantarillado (Km)": {"URBANO": 5081.321887080608, "RURAL": 676.8057550525716, "TOTAL": 5758.1276421331795}}, "PUNTOS_MAYORES": {"Plantas Tratamiento (unid)": {"URBANO": 18.0, "RURAL": 24.0, "TOTAL": 42.0}, "Tanques Almacenamiento (unid)": {"URBANO": 264.0, "RURAL": 233.0, "TOTAL": 497.0}, "Central Hidroeléctrica (unid)": {"URBANO": 0.0, "RURAL": 2.0, "TOTAL": 2.0}, "PTAR (unid)": {"URBANO": 1.0, "RURAL": 31.0, "TOTAL": 32.0}}}, "EEQ": {"REDES": {"Franjas de Servidumbre (Km)": {"URBANO": 455.24810690370595, "RURAL": 587.1362569268568, "TOTAL": 1042.3843638305627}, "Tramos Subtransmisión (Km)": {"URBANO": 220.80121253440512, "RURAL": 284.5154869624468, "TOTAL": 505.3166994968519}}, "PUNTOS_MASIVOS": {"Postes de Distribución (unid)": {"URBANO": 212089.0, "RURAL": 61126.0, "TOTAL": 273215.0}}, "PUNTOS_MAYORES": {"Subestaciones (unid)": {"URBANO": 43.0, "RURAL": 14.0, "TOTAL": 57.0}}}}, "titles": {"EPMAPS_MAYORES": "Plantas de Tratamiento, Centrales y PTAR", "EEQ_MAYORES": "Subestaciones y Puntos de Carga"}};
+
+
+  const selSource = document.getElementById("sel_source");
+  const selClasif = document.getElementById("sel_clasificacion");
+  const kpisContainer = document.getElementById("kpis_container");
+
+  // Contenedores EPMAPS
+  const alcantRedesBox = document.getElementById("chart_redes_alcant_box");
+  const apRedesBox = document.getElementById("chart_redes_ap_box");
+  const alcantPrincBox = document.getElementById("chart_red_alcant_principal_box");
+  const tanquesBox = document.getElementById("chart_tanques_box");
+  const plantasMayorBox = document.getElementById("chart_plantas_mayor_box");
+
+  // Contenedores EEQ
+  const eeqRedesBox = document.getElementById("chart_lineal_eeq_box");
+  const eeqMasivoBox = document.getElementById("chart_puntual_masivo_box");
+  const eeqMayorBox = document.getElementById("chart_puntual_mayor_eeq_box");
+
+  const tableBox = document.getElementById("table_box");
+
+
+  const AREA_URBANO = DB.global_kpis.AreaKm2.URBANO;
+  const AREA_RURAL = DB.global_kpis.AreaKm2.RURAL;
+  const AREA_TOTAL = AREA_URBANO + AREA_RURAL;
+
+  // Colores
+  const COLOR_URBANO = '#DD835D';
+  const COLOR_RURAL = '#62937F';
+  const COLOR_ALCANT = '#2050B8'; // Nuevo color para Alcantarillado Principal
+  const COLOR_AP = '#4CAF50';
+  const COLOR_TANK = '#FFC107';
+
+
+  // Formateadores
+  const fmtNum = n => n.toLocaleString("es-EC", { maximumFractionDigits: 0 });
+  const fmtKm = n => n.toLocaleString("es-EC", { maximumFractionDigits: 2 }) + " Km";
+  const fmtDensity = n => n.toLocaleString("es-EC", { maximumFractionDigits: 2 }) + " Unid/Km²";
+
+
+  // ---------------- LÓGICA DEL LAYOUT DINÁMICO ----------------
+  function updateLayout(source) {
+      // 1. Ocultar todos los contenedores primero
+      const allBoxes = [
+          alcantRedesBox, apRedesBox, alcantPrincBox, tanquesBox, plantasMayorBox, 
+          eeqRedesBox, eeqMasivoBox, eeqMayorBox
+      ];
+      allBoxes.forEach(el => el.classList.add('hidden'));
+
+      // 2. Aplicar layout específico
+      if (source === "EPMAPS") {
+          // EPMAPS: 5 gráficos + tabla
+          // Fila 1 (2/3 de ancho)
+          alcantRedesBox.classList.remove('hidden');
+          // Fila 1 (1/3 de ancho)
+          alcantPrincBox.classList.remove('hidden');
+
+          // Fila 2 (2/3 de ancho)
+          apRedesBox.classList.remove('hidden');
+          // Fila 2 (1/3 de ancho)
+          tanquesBox.classList.remove('hidden');
+
+          // Fila 3 (1/3 de ancho - plantas)
+          plantasMayorBox.classList.remove('hidden');
+          plantasMayorBox.style.gridColumn = '1 / 2';
+
+          // Tabla ocupa el resto de la fila 3 (2/3 de ancho)
+          tableBox.classList.remove('hidden');
+          tableBox.classList.remove('col-span-3');
+          tableBox.style.gridColumn = '2 / 4';
+          tableBox.style.gridRow = '3';
+
+
+      } else if (source === "EEQ") {
+          // EEQ: 3 gráficos + tabla
+          // Fila 1 (2 gráficos)
+          eeqRedesBox.classList.remove('hidden');
+          eeqRedesBox.style.gridColumn = '1 / 3'; // Redes EEQ ocupan 2/3
+          eeqMasivoBox.classList.remove('hidden');
+          eeqMasivoBox.style.gridColumn = '3 / 4'; // Masivos EEQ ocupan 1/3
+
+          // Fila 2 (1 gráfico)
+          eeqMayorBox.classList.remove('hidden');
+          eeqMayorBox.style.gridColumn = '1 / 4'; // Mayor EEQ ocupan 1/3
+
+          // Fila 3 (Tabla Full Width)
+          tableBox.classList.remove('hidden');
+          tableBox.classList.remove('col-span-2');
+          tableBox.classList.add('col-span-3'); // Tabla Full Width
+          tableBox.style.gridRow = '3';
+      }
+  }
+
+
+  // Función Principal de Renderizado
+  function updateDashboard(){
+    const sourceVal = selSource.value;
+    const clasifVal = selClasif.value;
+    const allMetrics = DB.data[sourceVal].REDES || {};
+    const allPoints = DB.data[sourceVal].PUNTOS_MAYORES || {};
+    const allMassive = DB.data[sourceVal].PUNTOS_MASIVOS || {};
+
+    // ---------------- LAYOUT DINÁMICO ----------------
+    updateLayout(sourceVal);
+
+    // ---------------- LÓGICA DE DATOS Y KPIs ----------------
+    function calculateSourceKPIs(data, filter) {
+        let countU = 0, countR = 0, lengthU = 0, lengthR = 0;
+
+        // Sumar todos los puntos
+        if (data.PUNTOS_MASIVOS) {
+            Object.values(data.PUNTOS_MASIVOS).forEach(m => { countU += m.URBANO; countR += m.RURAL; });
+        }
+        if (data.PUNTOS_MAYORES) {
+            Object.values(data.PUNTOS_MAYORES).forEach(m => { countU += m.URBANO; countR += m.RURAL; });
+        }
+
+        // Sumar todas las redes
+        if (data.REDES) {
+            Object.values(data.REDES).forEach(m => { lengthU += m.URBANO; lengthR += m.RURAL; });
+        }
+
+        let units = (filter === "URBANO") ? countU : (filter === "RURAL") ? countR : (countU + countR);
+        let km = (filter === "URBANO") ? lengthU : (filter === "RURAL") ? lengthR : (lengthU + lengthR);
+
+        let area = (filter === "URBANO") ? AREA_URBANO : (filter === "RURAL") ? AREA_RURAL : AREA_TOTAL;
+        let density = units / area;
+
+        return { units, km, density, area };
+    }
+
+    const sourceKPIs = calculateSourceKPIs(DB.data[sourceVal], clasifVal);
+
+    // --- Renderizar KPIs ---
+    kpisContainer.innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-icon kpi-blue"><i class="fa-solid fa-list-ol"></i></div>
+        <div class="kpi-info">
+          <h3>Total Infraestructura de ${sourceVal}</h3>
+          <div class="num">${fmtNum(sourceKPIs.units)}</div>
+          <div class="sub">Activos fijos contados en la selección actual</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon kpi-green"><i class="fa-solid fa-chart-area"></i></div>
+        <div class="kpi-info">
+          <h3>Longitud Total de Redes</h3>
+          <div class="num">${fmtKm(sourceKPIs.km)}</div>
+          <div class="sub">Redes y Tramos lineales de la fuente actual</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon kpi-highlight"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+        <div class="kpi-info">
+          <h3>Densidad de Cobertura</h3>
+          <div class="num">${fmtDensity(sourceKPIs.density)}</div>
+          <div class="sub">Activos de punto por ${sourceKPIs.area.toFixed(0)} Km²</div>
+        </div>
+      </div>
+    `;
+
+
+    // ---------------- FUNCIONES DE RENDERIZADO GENERALES ----------------
+
+    // RENDERIZA GRÁFICOS DE BARRAS AGRUPADAS (REDES O PUNTOS)
+    function renderGroupedBarChart(metrics, metricNames, titleY, elementId, filter) {
+        let dataTraces = [];
+        // V49.0 FIX: Corregir etiquetas con <br> y nombres más cortos
+        let categories = metricNames.map(n => 
+             n.replace(' (Km)', '').replace(' (unid)', '')
+              // Redes EPMAPS (V49.0 - Simplificación para evitar conflictos con <br>)
+              .replace('Redes Alcantarillado Planif.', 'Alcantarillado P.')
+              .replace('Redes Alcantarillado Ejec.', 'Alcantarillado E.')
+              .replace('Redes AP Planificadas', 'Agua Potable P.')
+              .replace('Redes AP en Ejecución', 'Agua Potable E.')
+              // Puntos Largos (V49.0 FIX for Plantas/Centrales/Tramos overlap)
+              .replace('Plantas Tratamiento', 'Plantas<br>T.')
+              .replace('Central Hidroeléctrica', 'Central<br>H.')
+              .replace('Tramos Subtransmisión', 'Tramos<br>Subtrans.')
+        );
+
+        const isTotal = filter === "TOTAL";
+        const unitLabel = titleY.includes('Km') ? ' Km' : ' unidades';
+
+        // V50.0 FIX: Determinar el modo de las barras: 'stack' SOLO para redes EPMAPS Planned/Executed.
+        const isEpmapsPlannedExecutedRedes = elementId.includes('redes_alcant') || elementId.includes('redes_ap');
+        const mode = isEpmapsPlannedExecutedRedes ? 'stack' : 'group';
+
+        if (isTotal) {
+            const urbVals = metricNames.map(n => metrics[n].URBANO);
+            const ruralVals = metricNames.map(n => metrics[n].RURAL);
+
+            dataTraces = [
+                // Rural primero (abajo en el stack)
+                { x: categories, y: ruralVals, name: 'Rural', type: 'bar', marker: { color: COLOR_RURAL } },
+                // Urbano segundo (arriba en el stack)
+                { x: categories, y: urbVals, name: 'Urbano', type: 'bar', marker: { color: COLOR_URBANO } }
+            ];
+
+        } else {
+            const vals = metricNames.map(n => metrics[n][filter]);
+            const color = (filter === "URBANO") ? COLOR_URBANO : COLOR_RURAL;
+            dataTraces = [{ 
+                x: categories, y: vals, name: filter, type: 'bar', 
+                marker: { color: color },
+                hovertemplate: `<b>%{x}</b><br>${filter}: %{y:,.2f}${unitLabel}<extra></extra>`
+            }];
+        }
+
+        const layout = {
+            barmode: mode, /* BARRAS APILADAS/AGRUPADAS DINÁMICA */
+            title: false, showlegend: isTotal, 
+            margin: { l: 50, r: 20, t: 20, b: 95 }, /* MARGEN INFERIOR AUMENTADO A 95 */
+            xaxis: { title: false, showgrid: false, tickangle: 0, automargin: true },
+            yaxis: { title: titleY, showgrid: true, gridcolor: "#EEE", automargin: true }
+        };
+        Plotly.newPlot(elementId, dataTraces, layout, { displayModeBar: false, responsive: true });
+    }
+
+    // RENDERIZA GRÁFICO CIRCULAR (TANQUES/RED PRINCIPAL/PUNTOS MASIVOS)
+    function renderPieChart(metric, name, elementId, filter) {
+        if (!metric) return;
+
+        const isTotal = filter === "TOTAL";
+
+        let values, labels, total, color, unitLabel;
+        if (name.includes('(Km)')) {
+            unitLabel = ' Km';
+        } else {
+            unitLabel = ' unid';
+        }
+
+        if (isTotal) {
+            values = [metric.URBANO, metric.RURAL];
+            labels = ['Urbano', 'Rural'];
+            total = metric.URBANO + metric.RURAL;
+            color = [COLOR_URBANO, COLOR_RURAL];
+        } else {
+            values = [metric[filter]];
+            labels = [filter];
+            total = metric[filter];
+            color = [(filter === "URBANO") ? COLOR_URBANO : COLOR_RURAL];
+            // Si el filtro es individual, mostramos el valor en grande:
+            document.getElementById(elementId).innerHTML = `
+                <div style="text-align:center; padding-top:60px;">
+                    <i class="fa-solid fa-chart-pie" style="font-size:30px; color:${COLOR_URBANO};"></i>
+                    <p style="font-size: 16px; color: var(--c-text-light);">${name.replace(' (unid)', '').replace(' (Km)', '')} (${filter})</p>
+                    <h2 style="font-size: 60px; font-weight: 800; color: ${color}; margin: 0;">${fmtNum(total)}</h2>
+                    <p style="font-size: 14px; color: var(--c-text-light);">Total en suelo ${filter}${unitLabel}</p>
+                </div>
+            `;
+            return;
+        }
+
+        const dataTrace = [{
+            values: values,
+            labels: labels,
+            type: 'pie',
+            hole: .4,
+            marker: { colors: color },
+            hovertemplate: `<b>%{label}</b><br>Conteo: %{value:,.0f}${unitLabel}<br>Porcentaje: %{percent}<extra></extra>`
+        }];
+
+        const layout = {
+            title: false, height: 300,
+            annotations: [{
+                font: { size: 18, color: 'var(--c-text)' },
+                showarrow: false,
+                text: `Total: <br>${fmtNum(total)}`,
+                x: 0.5, y: 0.5
+            }],
+            margin: { l: 20, r: 20, t: 30, b: 30 },
+            showlegend: true
+        };
+        Plotly.newPlot(elementId, dataTrace, layout, { displayModeBar: false, responsive: true });
+    }
+
+    // ---------------- EJECUCIÓN DEL RENDERIZADO ----------------
+
+    if (sourceVal === "EPMAPS") {
+        // --- 1. Redes Alcantarillado (Stack)
+        const alcantMetrics = {};
+        const alcantNames = [];
+
+        ['Redes Alcantarillado Planif. (Km)', 'Redes Alcantarillado Ejec. (Km)'].forEach(name => {
+            if (allMetrics[name]) {
+                alcantMetrics[name] = allMetrics[name];
+                alcantNames.push(name);
+            }
+        });
+        renderGroupedBarChart(alcantMetrics, alcantNames, "Longitud (Km)", 'chart_redes_alcant', clasifVal);
+
+        // --- 2. Redes Agua Potable (Stack)
+        const apMetrics = {};
+        const apNames = [];
+        ['Redes AP Planificadas (Km)', 'Redes AP en Ejecución (Km)'].forEach(name => {
+            if (allMetrics[name]) {
+                apMetrics[name] = allMetrics[name];
+                apNames.push(name);
+            }
+        });
+        renderGroupedBarChart(apMetrics, apNames, "Longitud (Km)", 'chart_redes_ap', clasifVal);
+
+        // --- 3. Red Alcantarillado Principal (Pie)
+        const alcantPrincMetric = allMetrics["Red Alcantarillado (Km)"];
+        renderPieChart(alcantPrincMetric, "Red Alcantarillado (Km)", 'chart_red_alcant_principal', clasifVal);
+
+        // --- 4. Tanques (Pie)
+        const tanquesMetric = allPoints["Tanques Almacenamiento (unid)"];
+        renderPieChart(tanquesMetric, "Tanques Almacenamiento (unid)", 'chart_tanques', clasifVal);
+
+        // --- 5. Plantas y PTAR (Grouped Bar)
+        const plantasMetrics = {};
+        const plantasNames = [];
+
+        Object.keys(allPoints).filter(name => name !== "Tanques Almacenamiento (unid)").forEach(name => {
+             if (allPoints[name]) {
+                plantasMetrics[name] = allPoints[name];
+                plantasNames.push(name);
+            }
+        });
+        document.getElementById('title_plantas_mayor').innerHTML = `<i class="fa-solid fa-industry"></i> Plantas de Tratamiento, PTAR y Centrales`;
+        renderGroupedBarChart(plantasMetrics, plantasNames, "Unidades", 'chart_plantas_mayor', clasifVal);
+
+        // La tabla se renderiza abajo
+    } 
+
+    else if (sourceVal === "EEQ") {
+        // --- 1. EEQ Redes (Grouped Bar)
+        const eeqRedesNames = Object.keys(allMetrics);
+        renderGroupedBarChart(allMetrics, eeqRedesNames, "Longitud (Km)", 'chart_lineal_eeq', clasifVal);
+
+        // --- 2. EEQ Masivos (Pie - Postes)
+        const eeqMasivoMetric = allMassive[Object.keys(allMassive)[0]];
+        renderPieChart(eeqMasivoMetric, "Postes de Distribución (unid)", 'chart_puntual_masivo', clasifVal);
+
+        // --- 3. EEQ Puntos Mayores (Grouped Bar)
+        const eeqPuntosMayoresNames = Object.keys(allPoints);
+        renderGroupedBarChart(allPoints, eeqPuntosMayoresNames, "Unidades", 'chart_puntual_mayor_eeq', clasifVal);
+
+        // La tabla se renderiza abajo
+    }
+
+    // --- RENDERIZADO DE TABLA (Válido para EPMAPS y EEQ) ---
+    function renderDetailTable(data, elementId) {
+        const masivos = data.PUNTOS_MASIVOS || {};
+        const mayores = data.PUNTOS_MAYORES || {};
+        const redes = data.REDES || {};
+
+        let allMetrics = {...mayores, ...masivos, ...redes};
+
+        let tableHTML = `
+            <table style="width:100%; max-width: 650px; margin: 0 auto; border-collapse:collapse; font-size:14px;">
+              <thead>
+                <tr style="background-color:#F8F9FA;">
+                  <th style="padding:10px; border-bottom:1px solid #EEE;">Infraestructura</th>
+                  <th style="padding:10px; border-bottom:1px solid #EEE;">Urbano</th>
+                  <th style="padding:10px; border-bottom:1px solid #EEE;">Rural</th>
+                  <th style="padding:10px; border-bottom:1px solid #EEE;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        Object.keys(allMetrics).forEach(name => {
+            const m = allMetrics[name];
+            let unit = name.includes('(Km)') ? ' Km' : ' unid';
+            tableHTML += `
+              <tr style="border-bottom:1px solid #F1F1F1;">
+                <td style="padding:8px;">${name.replace(' (unid)', '').replace(' (Km)', '')} (${unit})</td>
+                <td style="padding:8px; color:${COLOR_URBANO}; font-weight:600;">${m.URBANO.toLocaleString("es-EC", { maximumFractionDigits: 2 })}</td>
+                <td style="padding:8px; color:${COLOR_RURAL}; font-weight:600;">${m.RURAL.toLocaleString("es-EC", { maximumFractionDigits: 2 })}</td>
+                <td style="padding:8px; font-weight:800;">${m.TOTAL.toLocaleString("es-EC", { maximumFractionDigits: 2 })}</td>
+              </tr>
+            `;
+        });
+
+        tableHTML += `</tbody></table>`;
+        document.getElementById(elementId).innerHTML = tableHTML;
+    }
+
+    renderDetailTable(DB.data[sourceVal], 'detail_table');
+  }
+
+  // Event Listeners
+  selSource.addEventListener("change", updateDashboard);
+  selClasif.addEventListener("change", updateDashboard);
+
+  // Init
+  updateDashboard();
+
+})();
+</script>
+</body>
+</html>
