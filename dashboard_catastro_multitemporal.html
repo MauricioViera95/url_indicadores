@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dashboard Catastral Multitemporal</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<style>
+  :root { 
+    --c-brand: #2050B8; 
+    --c-brand-light: #4A7ECF; 
+    --c-accent-green: #28A745;
+    --c-accent-orange: #FFC107; 
+    --c-bg: #F8F9FA; 
+    --c-card: #ffffff;
+    --c-text: #212529; 
+    --c-text-light: #6C757D; 
+    --radius: 12px;
+    --shadow: 0 6px 12px rgba(0,0,0,0.08); 
+    --shadow-hover: 0 8px 16px rgba(0,0,0,0.12);
+  }
+  body { margin:0; padding:0; font-family:'Inter', sans-serif; background:var(--c-bg); color:var(--c-text); }
+  .wrap { max-width:1400px; margin:0 auto; padding:24px; }
+
+  /* Header */
+  .head { 
+    display:flex; justify-content:space-between; align-items:center; 
+    margin-bottom:24px; background:var(--c-card); padding:20px; 
+    border-radius:var(--radius); box-shadow:var(--shadow);
+    border-left: 6px solid var(--c-brand);
+    gap: 16px;
+  }
+  .head h1 { margin:0; font-size:26px; color:var(--c-brand); font-weight: 800; }
+  .head p { margin:4px 0 0 0; color:var(--c-text-light); font-size:15px; }
+  .head .cutoff { font-size: 13px; color: var(--c-text-light); margin-top: 2px; }
+
+  /* Filtros */
+  .filters {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;
+  }
+  .filter-card {
+    background: var(--c-card); padding: 16px; border-radius: 10px; box-shadow: var(--shadow);
+  }
+  .filter-label { font-size: 13px; font-weight: 600; color: var(--c-text-light); margin-bottom: 8px; display: block; text-transform: uppercase;}
+  .filter-label i { margin-right: 6px; }
+  select {
+    width: 100%; padding: 10px; border: 1px solid #CED4DA; border-radius: 8px;
+    font-family: inherit; font-size: 14px; outline: none; cursor: pointer; background: #E9ECEF;
+    color: var(--c-text);
+  }
+  select:hover { border-color: var(--c-brand); }
+  select:focus { border-color: var(--c-brand); box-shadow: 0 0 0 0.2rem rgba(32, 80, 184, 0.25); }
+
+  /* Toggle multitemporal */
+  .toggle-row {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    color:var(--c-text-light);
+    margin-bottom:4px;
+  }
+  .switch { position: relative; display: inline-block; width: 42px; height: 22px; }
+  .switch input { display:none; }
+  .slider {
+    position: absolute; cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ced4da; transition: .2s; border-radius: 22px;
+  }
+  .slider:before {
+    position: absolute; content: "";
+    height: 16px; width: 16px;
+    left: 3px; bottom: 3px;
+    background-color: white; transition: .2s; border-radius: 50%;
+  }
+  input:checked + .slider { background-color: var(--c-brand); }
+  input:checked + .slider:before { transform: translateX(20px); }
+
+  /* KPIs */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--c-card); padding: 24px; border-radius: var(--radius); box-shadow:var(--shadow);
+    display: flex; align-items: center; gap: 20px; transition: all 0.2s ease-in-out;
+  }
+  .kpi-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
+  .kpi-icon {
+    width: 60px; height: 60px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+  }
+  .kpi-blue { background: #E0EBF7; color: var(--c-brand); }
+  .kpi-green { background: linear-gradient(to bottom, #E6F4EA, #DFF0D8); color: var(--c-accent-green); }
+  .kpi-orange { background: #FFF3CD; color: var(--c-accent-orange); border: 1px solid #FFE29B; }
+
+  .kpi-info h3 { margin: 0; font-size: 15px; color: var(--c-text-light); font-weight: 600; }
+  .kpi-info .num { font-size: 28px; font-weight: 800; color: var(--c-text); letter-spacing: -0.5px; margin-top: 4px; }
+  .kpi-info .sub { font-size: 13px; color: #ADB5BD; margin-top: 4px; }
+
+  /* ============================
+     PANEL MULTITEMPORAL (NUEVO LAYOUT)
+     ============================ */
+  .kpis-delta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;   /* 2 cards arriba */
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+
+  .kpi-delta {
+    background: var(--c-card);
+    padding: 18px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .kpi-delta.full {
+    grid-column: 1 / -1;              /* ocupa todo el ancho */
+    padding: 18px;
+  }
+
+  .kpi-delta h4 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: var(--c-text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .kpi-delta-main {
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  .kpi-delta-main.positive { color: #198754; }
+  .kpi-delta-main.negative { color: #DC3545; }
+
+  .kpi-delta-sub {
+    font-size: 13px;
+    color: #ADB5BD;
+    margin-bottom: 6px;
+  }
+
+  .kpi-delta-detail {
+    font-size: 13px;
+    color: var(--c-text-light);
+    line-height: 1.35;
+  }
+
+  /* === Caja parroquias con cambios (2 columnas internas) === */
+  .delta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;   /* aumentan | disminuyen */
+    gap: 14px;
+    margin-top: 10px;
+  }
+
+  .delta-col {
+    background: #F8F9FA;
+    border: 1px solid #E9ECEF;
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 120px;
+  }
+
+  .delta-col-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--c-text);
+    margin: 0 0 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .badge-up {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #E6F4EA;
+    color: #198754;
+    border: 1px solid #CDE9D7;
+  }
+  .badge-down {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #F8D7DA;
+    color: #DC3545;
+    border: 1px solid #F1B7BE;
+  }
+
+  /* Bloques por Administración */
+  .delta-zone {
+    margin: 0 0 10px 0;
+    padding: 10px;
+    border-radius: 10px;
+    background: white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    border-left: 4px solid rgba(32,80,184,0.35);
+  }
+
+  .delta-zone h5 {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--c-text);
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+  }
+
+  /* Items en “pill rows” */
+  .delta-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .delta-pill {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    border: 1px solid #E9ECEF;
+    background: #F8F9FA;
+    color: #495057;
+  }
+
+  .delta-pill strong { color: #212529; }
+
+  /* Gráfico */
+  .chart-box {
+    background: var(--c-card); padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow);
+    min-height: 600px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+
+  .chart-toolbar {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+
+  .chart-note { font-size:13px; color:var(--c-text-light); }
+
+  .metric-toggle {
+    display:inline-flex;
+    border-radius:999px;
+    background:#E9ECEF;
+    padding:3px;
+    box-shadow: inset 0 0 0 1px #DEE2E6;
+  }
+
+  .metric-btn {
+    border:none;
+    background:transparent;
+    padding:6px 14px;
+    font-size:13px;
+    font-family:inherit;
+    cursor:pointer;
+    border-radius:999px;
+    color:#6C757D;
+    font-weight:600;
+    transition:all 0.15s ease-in-out;
+  }
+
+  .metric-btn.active {
+    background:var(--c-brand);
+    color:white;
+    box-shadow:0 2px 6px rgba(0,0,0,0.18);
+  }
+
+  .chart-footnote {
+    margin-top:6px;
+    font-size:12px;
+    color:#ADB5BD;
+  }
+
+  #chart .bar rect {
+    stroke-width: 0; 
+    transition: all 0.2s ease-out;
+    opacity: 1;
+  }
+
+  /* Responsive */
+  @media (max-width: 980px){
+    .kpis-delta { grid-template-columns: 1fr; }
+    .delta-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 900px) {
+    .head h1 { font-size: 20px; }
+    .kpi-card { padding: 16px; }
+    .kpi-info .num { font-size: 22px; }
+    .chart-box { min-height: 480px; }
+  }
+
+  @media (max-width: 600px) {
+    .wrap { padding: 12px; }
+    .kpis { grid-template-columns: 1fr; }
+    .chart-box { min-height: 420px; }
+    .metric-toggle { width:100%; justify-content:space-between; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1><i class="fa-solid fa-building-user"></i> Catastro Predial</h1>
+      <p>
+        Distrito Metropolitano de Quito<br/>
+        <span id="cutoff_label" class="cutoff">Corte de información: --/--/----</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- Filtros principales -->
+  <div class="filters">
+    <div class="filter-card">
+      <span class="filter-label"><i class="fa-solid fa-calendar-day"></i>Corte de información</span>
+      <select id="sel_cutoff"></select>
+    </div>
+    <div class="filter-card">
+      <span class="filter-label"><i class="fa-solid fa-map"></i>Administración Zonal</span>
+      <select id="sel_zona">
+        <option value="ALL">Todas las Administraciones</option>
+      </select>
+    </div>
+    <div class="filter-card">
+      <span class="filter-label"><i class="fa-solid fa-location-dot"></i>Parroquia</span>
+      <select id="sel_parroquia" disabled>
+        <option value="ALL">Todas las Parroquias</option>
+      </select>
+    </div>
+    <div class="filter-card">
+      <div class="toggle-row">
+        <label class="switch">
+          <input type="checkbox" id="chk_multitemporal">
+          <span class="slider"></span>
+        </label>
+        <span><strong>Análisis multitemporal</strong><br/><span style="font-size:12px;">Comparar este corte con otro disponible</span></span>
+      </div>
+      <div id="panel_compare_cutoff" style="margin-top:8px; display:none;">
+        <span class="filter-label" style="margin-bottom:4px;">Comparar contra</span>
+        <select id="sel_cutoff_compare"></select>
+        <div style="margin-top:4px; font-size:11px; color:#ADB5BD;">
+          Se calcularán diferencias de predios y avalúos para la selección actual.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs principales -->
+  <div class="kpis">
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-blue"><i class="fa-solid fa-house-chimney"></i></div>
+      <div class="kpi-info">
+        <h3>Total Predios</h3>
+        <div class="num" id="kpi_count">0</div>
+        <div class="sub" id="kpi_txt">En la selección actual</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-green"><i class="fa-solid fa-sack-dollar"></i></div>
+      <div class="kpi-info">
+        <h3>Avalúo Estimado Total</h3>
+        <div class="num" id="kpi_val">$0</div>
+        <div class="sub">Suma de avalúos catastrales</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon kpi-orange"><i class="fa-solid fa-scale-balanced"></i></div>
+      <div class="kpi-info">
+        <h3>Valor Promedio por Predio</h3>
+        <div class="num" id="kpi_avg">$0</div>
+        <div class="sub">Según selección actual</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL MULTITEMPORAL (NUEVO) -->
+  <div id="panel_delta" style="display:none; margin-bottom:16px;">
+    <div class="kpis-delta">
+
+      <!-- Card 1 -->
+      <div class="kpi-delta">
+        <h4>Variación de predios</h4>
+        <div class="kpi-delta-main" id="delta_predios_main">–</div>
+        <div class="kpi-delta-sub" id="delta_predios_pct">–</div>
+        <div class="kpi-delta-detail" id="delta_predios_detail">Seleccione un corte de comparación.</div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="kpi-delta">
+        <h4>Variación de avalúo y promedio</h4>
+        <div class="kpi-delta-main" id="delta_avaluo_main">–</div>
+        <div class="kpi-delta-sub" id="delta_avaluo_pct">–</div>
+        <div class="kpi-delta-detail" id="delta_avaluo_detail">Se mostrará Δ de avalúo total y del valor promedio por predio.</div>
+      </div>
+
+      <!-- Card 3 (full width) -->
+      <div class="kpi-delta full">
+        <h4 id="delta_scope_title">Parroquias con cambios de predios</h4>
+
+        <div class="delta-grid">
+          <div class="delta-col">
+            <div class="delta-col-title">
+              <span class="badge-up">Aumentan</span>
+              <span style="font-weight:600; color:#6C757D; font-size:12px;">(por administración zonal)</span>
+            </div>
+            <div id="delta_up_container"></div>
+          </div>
+
+          <div class="delta-col">
+            <div class="delta-col-title">
+              <span class="badge-down">Disminuyen</span>
+              <span style="font-weight:600; color:#6C757D; font-size:12px;">(por administración zonal)</span>
+            </div>
+            <div id="delta_down_container"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px; font-size:12px; color:#ADB5BD;">
+          Nota: se listan únicamente parroquias con Δ ≠ 0 entre los dos cortes seleccionados.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Gráfico -->
+  <div class="chart-box">
+    <div class="chart-toolbar">
+      <div class="chart-note">
+        Vista según: <span id="metric_label">Número de predios</span>
+      </div>
+      <div class="metric-toggle">
+        <button id="btn_metric_predios" class="metric-btn active">Predios</button>
+        <button id="btn_metric_avaluo" class="metric-btn">Avalúo total</button>
+      </div>
+    </div>
+    <div id="chart" style="width:100%; flex:1 1 auto;"></div>
+    <div class="chart-footnote">
+      Fuente: Catastro predial DMQ (PREDIO / PREDIOS). Corte de información actual: <span id="cutoff_footnote">--/--/----</span>.
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const DB_GLOBAL = {"snapshots": {"2025-09-26": {"global": {"count": 1007871, "val": 91743218836.65}, "data": {"AEROPUERTO": {"total": 26786, "val": 6105947553.34, "parroquias": [{"name": "CHECA", "count": 2244, "val": 299827181.64}, {"name": "EL QUINCHE", "count": 4231, "val": 495216429.87}, {"name": "GUAYLLABAMBA", "count": 4437, "val": 625177733.98}, {"name": "PIFO", "count": 4307, "val": 648389465.78}, {"name": "PUEMBO", "count": 5829, "val": 1374516135.5}, {"name": "TABABELA", "count": 1388, "val": 2009967070.77}, {"name": "YARUQUI", "count": 4350, "val": 652853535.8}]}, "CALDERON": {"total": 84417, "val": 5744584196.52, "parroquias": [{"name": "CALDERON", "count": 79667, "val": 5275153255.76}, {"name": "LLANO CHICO", "count": 4750, "val": 469430940.76}]}, "CENTRO O MANUELA SAENZ": {"total": 59655, "val": 5051886317.95, "parroquias": [{"name": "CENTRO HISTORICO", "count": 11332, "val": 1026840042.09}, {"name": "ITCHIMBIA", "count": 12472, "val": 1344103328.17}, {"name": "LA LIBERTAD", "count": 4118, "val": 285187164.95}, {"name": "PUENGASI", "count": 16109, "val": 1318378854.82}, {"name": "SAN JUAN", "count": 15624, "val": 1077376927.92}]}, "ELOY ALFARO": {"total": 94928, "val": 7868956604.469999, "parroquias": [{"name": "CHILIBULO", "count": 9376, "val": 757405034.96}, {"name": "CHIMBACALLE", "count": 8772, "val": 686679278.78}, {"name": "LA ARGELIA", "count": 12432, "val": 1015666446.21}, {"name": "LA FERROVIARIA", "count": 11143, "val": 911436965.91}, {"name": "LA MAGDALENA", "count": 8954, "val": 1061870124.38}, {"name": "LA MENA", "count": 11224, "val": 816038547.96}, {"name": "LLOA", "count": 1082, "val": 44953434.8}, {"name": "SAN BARTOLO", "count": 12605, "val": 1219493826.8}, {"name": "SOLANDA", "count": 19340, "val": 1355412944.67}]}, "LA DELICIA": {"total": 140349, "val": 11710601490.9, "parroquias": [{"name": "CALACALI", "count": 1779, "val": 225923826.65}, {"name": "CARCELEN", "count": 22144, "val": 1769187647.34}, {"name": "COMITE DEL PUEBLO", "count": 13180, "val": 1179602618.03}, {"name": "COTOCOLLAO", "count": 11155, "val": 903136127.97}, {"name": "EL CONDADO", "count": 29429, "val": 2444296042.71}, {"name": "NONO", "count": 2178, "val": 53663150.7}, {"name": "POMASQUI", "count": 12291, "val": 1271089289.35}, {"name": "PONCEANO", "count": 30938, "val": 2489812477.25}, {"name": "SAN ANTONIO DE PICHINCHA", "count": 17255, "val": 1373890310.9}]}, "LOS CHILLOS": {"total": 84039, "val": 8428591459.48, "parroquias": [{"name": "ALANGASI", "count": 11473, "val": 1705608982.26}, {"name": "AMAGUAÑA", "count": 12461, "val": 1217325747.38}, {"name": "CONOCOTO", "count": 49885, "val": 4800591874.75}, {"name": "GUANGOPOLO", "count": 397, "val": 22494356.65}, {"name": "LA MERCED", "count": 3714, "val": 299213970.67}, {"name": "PINTAG", "count": 6109, "val": 383356527.77}]}, "NOROCCIDENTE": {"total": 2871, "val": 194453719.37, "parroquias": [{"name": "GUALEA", "count": 454, "val": 19334972.8}, {"name": "NANEGAL", "count": 652, "val": 46658595.51}, {"name": "NANEGALITO", "count": 436, "val": 56370250.35}, {"name": "PACTO", "count": 1329, "val": 72089900.71}]}, "NOROCENTRAL": {"total": 4403, "val": 272617980.02, "parroquias": [{"name": "ATAHUALPA", "count": 645, "val": 54295095.37}, {"name": "CHAVEZPAMBA", "count": 268, "val": 12573311.08}, {"name": "PERUCHO", "count": 363, "val": 21169860.39}, {"name": "PUELLARO", "count": 1438, "val": 70860608.04}, {"name": "SAN JOSE DE MINAS", "count": 1689, "val": 113719105.14}]}, "NORTE O EUGENIO ESPEJO": {"total": 329963, "val": 28265202780.849995, "parroquias": [{"name": "BELISARIO QUEVEDO", "count": 22640, "val": 1836140021.47}, {"name": "COCHAPAMBA", "count": 18558, "val": 1354489237.05}, {"name": "IÑAQUITO", "count": 115851, "val": 9108567592.09}, {"name": "JIPIJAPA", "count": 30266, "val": 2662878931.21}, {"name": "KENNEDY", "count": 28596, "val": 2299020969.83}, {"name": "LA CONCEPCION", "count": 14950, "val": 1625396427.87}, {"name": "MARISCAL SUCRE", "count": 29503, "val": 2843085452.97}, {"name": "NAYON", "count": 9539, "val": 1978533765.77}, {"name": "RUMIPAMBA", "count": 39436, "val": 2787245838.44}, {"name": "SAN ISIDRO DEL INCA", "count": 18958, "val": 1607845928.92}, {"name": "ZAMBIZA", "count": 1666, "val": 161998615.23}]}, "QUITUMBE": {"total": 126330, "val": 8508115202.750001, "parroquias": [{"name": "CHILLOGALLO", "count": 15326, "val": 1166576714.95}, {"name": "GUAMANI", "count": 26441, "val": 1791331445.44}, {"name": "LA ECUATORIANA", "count": 16311, "val": 1272700977.77}, {"name": "QUITUMBE", "count": 38072, "val": 2391334820.96}, {"name": "TURUBAMBA", "count": 30180, "val": 1886171243.63}]}, "TUMBACO": {"total": 54130, "val": 9592261531.0, "parroquias": [{"name": "CUMBAYA", "count": 29826, "val": 5062300640.67}, {"name": "TUMBACO", "count": 24304, "val": 4529960890.33}]}}, "parroquia_map": {"CHECA": "AEROPUERTO", "EL QUINCHE": "AEROPUERTO", "GUAYLLABAMBA": "AEROPUERTO", "PIFO": "AEROPUERTO", "PUEMBO": "AEROPUERTO", "TABABELA": "AEROPUERTO", "YARUQUI": "AEROPUERTO", "CALDERON": "CALDERON", "LLANO CHICO": "CALDERON", "CENTRO HISTORICO": "CENTRO O MANUELA SAENZ", "ITCHIMBIA": "CENTRO O MANUELA SAENZ", "LA LIBERTAD": "CENTRO O MANUELA SAENZ", "PUENGASI": "CENTRO O MANUELA SAENZ", "SAN JUAN": "CENTRO O MANUELA SAENZ", "CHILIBULO": "ELOY ALFARO", "CHIMBACALLE": "ELOY ALFARO", "LA ARGELIA": "ELOY ALFARO", "LA FERROVIARIA": "ELOY ALFARO", "LA MAGDALENA": "ELOY ALFARO", "LA MENA": "ELOY ALFARO", "LLOA": "ELOY ALFARO", "SAN BARTOLO": "ELOY ALFARO", "SOLANDA": "ELOY ALFARO", "CALACALI": "LA DELICIA", "CARCELEN": "LA DELICIA", "COMITE DEL PUEBLO": "LA DELICIA", "COTOCOLLAO": "LA DELICIA", "EL CONDADO": "LA DELICIA", "NONO": "LA DELICIA", "POMASQUI": "LA DELICIA", "PONCEANO": "LA DELICIA", "SAN ANTONIO DE PICHINCHA": "LA DELICIA", "ALANGASI": "LOS CHILLOS", "AMAGUAÑA": "LOS CHILLOS", "CONOCOTO": "LOS CHILLOS", "GUANGOPOLO": "LOS CHILLOS", "LA MERCED": "LOS CHILLOS", "PINTAG": "LOS CHILLOS", "GUALEA": "NOROCCIDENTE", "NANEGAL": "NOROCCIDENTE", "NANEGALITO": "NOROCCIDENTE", "PACTO": "NOROCCIDENTE", "ATAHUALPA": "NOROCENTRAL", "CHAVEZPAMBA": "NOROCENTRAL", "PERUCHO": "NOROCENTRAL", "PUELLARO": "NOROCENTRAL", "SAN JOSE DE MINAS": "NOROCENTRAL", "BELISARIO QUEVEDO": "NORTE O EUGENIO ESPEJO", "COCHAPAMBA": "NORTE O EUGENIO ESPEJO", "IÑAQUITO": "NORTE O EUGENIO ESPEJO", "JIPIJAPA": "NORTE O EUGENIO ESPEJO", "KENNEDY": "NORTE O EUGENIO ESPEJO", "LA CONCEPCION": "NORTE O EUGENIO ESPEJO", "MARISCAL SUCRE": "NORTE O EUGENIO ESPEJO", "NAYON": "NORTE O EUGENIO ESPEJO", "RUMIPAMBA": "NORTE O EUGENIO ESPEJO", "SAN ISIDRO DEL INCA": "NORTE O EUGENIO ESPEJO", "ZAMBIZA": "NORTE O EUGENIO ESPEJO", "CHILLOGALLO": "QUITUMBE", "GUAMANI": "QUITUMBE", "LA ECUATORIANA": "QUITUMBE", "QUITUMBE": "QUITUMBE", "TURUBAMBA": "QUITUMBE", "CUMBAYA": "TUMBACO", "TUMBACO": "TUMBACO"}, "cutoff": "2025-09-26", "cutoff_human": "26/09/2025"}, "2025-12-31": {"global": {"count": 1014714, "val": 92086714926.81999}, "data": {"AEROPUERTO": {"total": 27159, "val": 6128267794.75, "parroquias": [{"name": "CHECA", "count": 2323, "val": 303516856.97}, {"name": "EL QUINCHE", "count": 4274, "val": 498303631.87}, {"name": "GUAYLLABAMBA", "count": 4460, "val": 627744361.47}, {"name": "PIFO", "count": 4481, "val": 653621402.26}, {"name": "PUEMBO", "count": 5863, "val": 1380098369.53}, {"name": "TABABELA", "count": 1392, "val": 2011775724.05}, {"name": "YARUQUI", "count": 4366, "val": 653207448.6}]}, "CALDERON": {"total": 87945, "val": 5901479078.41, "parroquias": [{"name": "CALDERON", "count": 83168, "val": 5430897943.55}, {"name": "LLANO CHICO", "count": 4777, "val": 470581134.86}]}, "CENTRO O MANUELA SAENZ": {"total": 59557, "val": 5050445412.76, "parroquias": [{"name": "CENTRO HISTORICO", "count": 11215, "val": 1025344598.96}, {"name": "ITCHIMBIA", "count": 12473, "val": 1343493782.39}, {"name": "LA LIBERTAD", "count": 4116, "val": 284947914.96}, {"name": "PUENGASI", "count": 16129, "val": 1319674844.46}, {"name": "SAN JUAN", "count": 15624, "val": 1076984271.99}]}, "ELOY ALFARO": {"total": 95085, "val": 7871186389.84, "parroquias": [{"name": "CHILIBULO", "count": 9409, "val": 758931297.0}, {"name": "CHIMBACALLE", "count": 8769, "val": 686903724.02}, {"name": "LA ARGELIA", "count": 12484, "val": 1017334302.27}, {"name": "LA FERROVIARIA", "count": 11153, "val": 911047503.61}, {"name": "LA MAGDALENA", "count": 8960, "val": 1062106059.63}, {"name": "LA MENA", "count": 11255, "val": 815839818.24}, {"name": "LLOA", "count": 1085, "val": 45073373.21}, {"name": "SAN BARTOLO", "count": 12603, "val": 1219100192.94}, {"name": "SOLANDA", "count": 19367, "val": 1354850118.92}]}, "LA DELICIA": {"total": 140690, "val": 11728205674.019999, "parroquias": [{"name": "CALACALI", "count": 1844, "val": 229552805.23}, {"name": "CARCELEN", "count": 22172, "val": 1769062207.76}, {"name": "COMITE DEL PUEBLO", "count": 13189, "val": 1180324545.48}, {"name": "COTOCOLLAO", "count": 11134, "val": 902444799.93}, {"name": "EL CONDADO", "count": 29580, "val": 2452625566.25}, {"name": "NONO", "count": 2179, "val": 53930488.79}, {"name": "POMASQUI", "count": 12328, "val": 1271916317.3}, {"name": "PONCEANO", "count": 30950, "val": 2490742610.23}, {"name": "SAN ANTONIO DE PICHINCHA", "count": 17314, "val": 1377606333.05}]}, "LOS CHILLOS": {"total": 84433, "val": 8446050894.100001, "parroquias": [{"name": "ALANGASI", "count": 11509, "val": 1707456205.51}, {"name": "AMAGUAÑA", "count": 12541, "val": 1219046539.99}, {"name": "CONOCOTO", "count": 50074, "val": 4812065294.09}, {"name": "GUANGOPOLO", "count": 399, "val": 22618051.77}, {"name": "LA MERCED", "count": 3754, "val": 300106631.85}, {"name": "PINTAG", "count": 6156, "val": 384758170.89}]}, "NOROCCIDENTE": {"total": 2896, "val": 194169288.78, "parroquias": [{"name": "GUALEA", "count": 455, "val": 19386099.69}, {"name": "NANEGAL", "count": 659, "val": 45934161.92}, {"name": "NANEGALITO", "count": 436, "val": 56367742.32}, {"name": "PACTO", "count": 1346, "val": 72481284.85}]}, "NOROCENTRAL": {"total": 4469, "val": 274554384.38, "parroquias": [{"name": "ATAHUALPA", "count": 649, "val": 54465210.69}, {"name": "CHAVEZPAMBA", "count": 269, "val": 12590340.01}, {"name": "PERUCHO", "count": 380, "val": 21236529.47}, {"name": "PUELLARO", "count": 1452, "val": 71351604.22}, {"name": "SAN JOSE DE MINAS", "count": 1719, "val": 114910699.99}]}, "NORTE O EUGENIO ESPEJO": {"total": 330491, "val": 28286304803.25, "parroquias": [{"name": "BELISARIO QUEVEDO", "count": 22643, "val": 1835637699.32}, {"name": "COCHAPAMBA", "count": 18598, "val": 1357286022.52}, {"name": "IÑAQUITO", "count": 115851, "val": 9111514736.99}, {"name": "JIPIJAPA", "count": 30266, "val": 2663905296.47}, {"name": "KENNEDY", "count": 28618, "val": 2300298160.48}, {"name": "LA CONCEPCION", "count": 14886, "val": 1616763170.14}, {"name": "MARISCAL SUCRE", "count": 29523, "val": 2844889538.75}, {"name": "NAYON", "count": 9592, "val": 1980838762.75}, {"name": "RUMIPAMBA", "count": 39422, "val": 2790145239.83}, {"name": "SAN ISIDRO DEL INCA", "count": 19409, "val": 1622570340.13}, {"name": "ZAMBIZA", "count": 1683, "val": 162455835.87}]}, "QUITUMBE": {"total": 127438, "val": 8605667663.539999, "parroquias": [{"name": "CHILLOGALLO", "count": 15385, "val": 1166647078.03}, {"name": "GUAMANI", "count": 26538, "val": 1863122551.33}, {"name": "LA ECUATORIANA", "count": 16387, "val": 1278599332.61}, {"name": "QUITUMBE", "count": 38534, "val": 2401046335.76}, {"name": "TURUBAMBA", "count": 30594, "val": 1896252365.81}]}, "SIN INFORMACIÓN": {"total": 359, "val": 0.0, "parroquias": [{"name": "NONE", "count": 359, "val": 0.0}]}, "TUMBACO": {"total": 54192, "val": 9600383542.990002, "parroquias": [{"name": "CUMBAYA", "count": 29860, "val": 5064483991.68}, {"name": "TUMBACO", "count": 24332, "val": 4535899551.31}]}}, "parroquia_map": {"CHECA": "AEROPUERTO", "EL QUINCHE": "AEROPUERTO", "GUAYLLABAMBA": "AEROPUERTO", "PIFO": "AEROPUERTO", "PUEMBO": "AEROPUERTO", "TABABELA": "AEROPUERTO", "YARUQUI": "AEROPUERTO", "CALDERON": "CALDERON", "LLANO CHICO": "CALDERON", "CENTRO HISTORICO": "CENTRO O MANUELA SAENZ", "ITCHIMBIA": "CENTRO O MANUELA SAENZ", "LA LIBERTAD": "CENTRO O MANUELA SAENZ", "PUENGASI": "CENTRO O MANUELA SAENZ", "SAN JUAN": "CENTRO O MANUELA SAENZ", "CHILIBULO": "ELOY ALFARO", "CHIMBACALLE": "ELOY ALFARO", "LA ARGELIA": "ELOY ALFARO", "LA FERROVIARIA": "ELOY ALFARO", "LA MAGDALENA": "ELOY ALFARO", "LA MENA": "ELOY ALFARO", "LLOA": "ELOY ALFARO", "SAN BARTOLO": "ELOY ALFARO", "SOLANDA": "ELOY ALFARO", "CALACALI": "LA DELICIA", "CARCELEN": "LA DELICIA", "COMITE DEL PUEBLO": "LA DELICIA", "COTOCOLLAO": "LA DELICIA", "EL CONDADO": "LA DELICIA", "NONO": "LA DELICIA", "POMASQUI": "LA DELICIA", "PONCEANO": "LA DELICIA", "SAN ANTONIO DE PICHINCHA": "LA DELICIA", "ALANGASI": "LOS CHILLOS", "AMAGUAÑA": "LOS CHILLOS", "CONOCOTO": "LOS CHILLOS", "GUANGOPOLO": "LOS CHILLOS", "LA MERCED": "LOS CHILLOS", "PINTAG": "LOS CHILLOS", "GUALEA": "NOROCCIDENTE", "NANEGAL": "NOROCCIDENTE", "NANEGALITO": "NOROCCIDENTE", "PACTO": "NOROCCIDENTE", "ATAHUALPA": "NOROCENTRAL", "CHAVEZPAMBA": "NOROCENTRAL", "PERUCHO": "NOROCENTRAL", "PUELLARO": "NOROCENTRAL", "SAN JOSE DE MINAS": "NOROCENTRAL", "BELISARIO QUEVEDO": "NORTE O EUGENIO ESPEJO", "COCHAPAMBA": "NORTE O EUGENIO ESPEJO", "IÑAQUITO": "NORTE O EUGENIO ESPEJO", "JIPIJAPA": "NORTE O EUGENIO ESPEJO", "KENNEDY": "NORTE O EUGENIO ESPEJO", "LA CONCEPCION": "NORTE O EUGENIO ESPEJO", "MARISCAL SUCRE": "NORTE O EUGENIO ESPEJO", "NAYON": "NORTE O EUGENIO ESPEJO", "RUMIPAMBA": "NORTE O EUGENIO ESPEJO", "SAN ISIDRO DEL INCA": "NORTE O EUGENIO ESPEJO", "ZAMBIZA": "NORTE O EUGENIO ESPEJO", "CHILLOGALLO": "QUITUMBE", "GUAMANI": "QUITUMBE", "LA ECUATORIANA": "QUITUMBE", "QUITUMBE": "QUITUMBE", "TURUBAMBA": "QUITUMBE", "NONE": "SIN INFORMACIÓN", "CUMBAYA": "TUMBACO", "TUMBACO": "TUMBACO"}, "cutoff": "2025-12-31", "cutoff_human": "31/12/2025"}}, "labels": {"2025-09-26": "26/09/2025", "2025-12-31": "31/12/2025"}, "default_cutoff": "2025-12-31"};
+  const SNAPSHOTS = DB_GLOBAL.snapshots || {};
+  const LABELS    = DB_GLOBAL.labels   || {};
+  let currentCutoff = DB_GLOBAL.default_cutoff || Object.keys(SNAPSHOTS)[0];
+  let compareCutoff = null;
+  let multitemporalOn = false;
+
+  // Elementos básicos
+  const selCutoff = document.getElementById("sel_cutoff");
+  const selCutoffCompare = document.getElementById("sel_cutoff_compare");
+  const panelCompareCutoff = document.getElementById("panel_compare_cutoff");
+  const chkMultitemporal = document.getElementById("chk_multitemporal");
+
+  const selZona = document.getElementById("sel_zona");
+  const selParr = document.getElementById("sel_parroquia");
+
+  const kpiCount = document.getElementById("kpi_count");
+  const kpiVal = document.getElementById("kpi_val");
+  const kpiTxt = document.getElementById("kpi_txt");
+  const kpiAvg = document.getElementById("kpi_avg");
+
+  const cutoffLabel = document.getElementById("cutoff_label");
+  const cutoffFootnote = document.getElementById("cutoff_footnote");
+  const metricLabel = document.getElementById("metric_label");
+
+  const btnMetricPredios = document.getElementById("btn_metric_predios");
+  const btnMetricAvaluo = document.getElementById("btn_metric_avaluo");
+
+  const panelDelta = document.getElementById("panel_delta");
+  const deltaPredMain = document.getElementById("delta_predios_main");
+  const deltaPredPct  = document.getElementById("delta_predios_pct");
+  const deltaPredDetail = document.getElementById("delta_predios_detail");
+
+  const deltaValMain = document.getElementById("delta_avaluo_main");
+  const deltaValPct  = document.getElementById("delta_avaluo_pct");
+  const deltaValDetail = document.getElementById("delta_avaluo_detail");
+
+  const deltaScopeTitle = document.getElementById("delta_scope_title");
+  const deltaUpContainer = document.getElementById("delta_up_container");
+  const deltaDownContainer = document.getElementById("delta_down_container");
+
+  let currentMetric = "predios"; // "predios" | "avaluo"
+
+  // --- Helpers de formato ---
+  const fmtNum = n => n.toLocaleString("es-EC");
+  const fmtMoneyCompact = n => n.toLocaleString("es-EC", {notation: "compact", compactDisplay: "short", maximumFractionDigits: 1}); 
+  const fmtMoneyKpi = n => "$" + n.toLocaleString("es-EC", {notation: "compact", compactDisplay: "short", maximumFractionDigits: 1});
+  const fmtAvgMoney = n => "$" + n.toLocaleString("es-EC", {maximumFractionDigits: 0}); 
+
+  function colorForValue(v, vMax, isSelected, isDimmed) {
+    if (isDimmed) return 'rgba(192,192,192,0.35)';
+    if (isSelected) return '#FFC107';
+    if (vMax <= 0) return 'rgba(74,126,207,0.6)';
+    const t = v / vMax;
+    const baseR = 74, baseG = 126, baseB = 207;
+    const minAlpha = 0.40, maxAlpha = 0.95;
+    const alpha = minAlpha + (maxAlpha - minAlpha) * t;
+    return `rgba(${baseR},${baseG},${baseB},${alpha.toFixed(3)})`;
+  }
+
+  // --- Rellenar selectors de corte ---
+  function initCutoffSelectors(){
+    selCutoff.innerHTML = "";
+    const keys = Object.keys(SNAPSHOTS).sort();
+    keys.forEach(key => {
+      const op = document.createElement("option");
+      op.value = key;
+      const label = LABELS[key] || key;
+      op.textContent = label;
+      selCutoff.appendChild(op);
+    });
+    if (!currentCutoff || !SNAPSHOTS[currentCutoff]) {
+      currentCutoff = keys[keys.length - 1];
+    }
+    selCutoff.value = currentCutoff;
+
+    rebuildCompareSelector();
+  }
+
+  function rebuildCompareSelector(){
+    const keys = Object.keys(SNAPSHOTS).sort();
+    selCutoffCompare.innerHTML = "";
+    let firstAlternative = null;
+    keys.forEach(key => {
+      if (key === currentCutoff) return;
+      const op = document.createElement("option");
+      op.value = key;
+      const label = LABELS[key] || key;
+      op.textContent = label;
+      selCutoffCompare.appendChild(op);
+      if (!firstAlternative) firstAlternative = key;
+    });
+    compareCutoff = firstAlternative;
+    if (firstAlternative) {
+      selCutoffCompare.value = firstAlternative;
+    }
+  }
+
+  // --- helpers para totales de selección en un snapshot ---
+  function computeSelectionTotals(DB, zonaVal, parrVal){
+    if (!DB) return {count:0, val:0};
+
+    if (zonaVal === "ALL"){
+      return {
+        count: DB.global.count || 0,
+        val: DB.global.val || 0
+      };
+    }
+
+    const zonaData = DB.data[zonaVal];
+    if (!zonaData) return {count:0, val:0};
+
+    if (parrVal === "ALL"){
+      return {
+        count: zonaData.total || 0,
+        val: zonaData.val || 0
+      };
+    }
+
+    const p = (zonaData.parroquias || []).find(p => p.name === parrVal);
+    if (!p) return {count:0, val:0};
+    return {count: p.count || 0, val: p.val || 0};
+  }
+
+  function parroquiaExists(DB, zona, parr){
+    if (!DB || !DB.data[zona] || !DB.data[zona].parroquias) return false;
+    return DB.data[zona].parroquias.some(p => p.name === parr);
+  }
+
+  // --- Render bloques (píldoras) para aumentos/disminuciones ---
+  function renderDeltaBlocks(items, containerUp, containerDown){
+    containerUp.innerHTML = "";
+    containerDown.innerHTML = "";
+
+    if (!items.length){
+      containerUp.innerHTML = `<div style="font-size:13px;color:#6C757D;">No se registran cambios de predios entre los cortes seleccionados.</div>`;
+      containerDown.innerHTML = `<div style="font-size:13px;color:#6C757D;">Sin disminuciones de predios.</div>`;
+      return;
+    }
+
+    const positives = items
+      .filter(i => i.delta > 0)
+      .sort((a,b) => (a.zona === b.zona) ? (b.delta - a.delta) : (a.zona.localeCompare(b.zona)));
+
+    const negatives = items
+      .filter(i => i.delta < 0)
+      .sort((a,b) => (a.zona === b.zona) ? (a.delta - b.delta) : (a.zona.localeCompare(b.zona)));
+
+    function buildZoneBlocks(arr){
+      if (!arr.length) return `<div style="font-size:13px;color:#6C757D;">Sin registros.</div>`;
+
+      let html = "";
+      let currentZona = null;
+
+      arr.forEach(it => {
+        if (it.zona !== currentZona){
+          if (currentZona !== null) html += `</div></div>`; // cierra items + zone
+          currentZona = it.zona;
+          html += `<div class="delta-zone">
+                     <h5>Administración Zonal ${currentZona}</h5>
+                     <div class="delta-items">`;
+        }
+
+        const absDelta = Math.abs(it.delta);
+        const txtDelta = it.delta > 0 ? `${absDelta.toLocaleString("es-EC")} más` : `${absDelta.toLocaleString("es-EC")} menos`;
+        const pctTxt = (it.pct || 0).toFixed(1) + "%";
+
+        html += `<span class="delta-pill">
+                   <strong>${it.parroquia}</strong>
+                   <span>–</span>
+                   <span>${txtDelta}</span>
+                   <span style="color:#ADB5BD;">(${pctTxt})</span>
+                 </span>`;
+      });
+
+      if (currentZona !== null) html += `</div></div>`; // cierre final
+      return html;
+    }
+
+    containerUp.innerHTML = buildZoneBlocks(positives);
+    containerDown.innerHTML = buildZoneBlocks(negatives);
+  }
+
+  // --- Listas de cambios (DMQ completo o por zona) ---
+  function updateDeltaLists(DBref, DBcurr, zonaSel, parrSel){
+    deltaUpContainer.innerHTML = "";
+    deltaDownContainer.innerHTML = "";
+
+    if (!DBref || !DBcurr) {
+      deltaScopeTitle.textContent = "Parroquias con cambios de predios";
+      deltaUpContainer.innerHTML = `<div style="font-size:13px;color:#6C757D;">No hay información suficiente para comparar.</div>`;
+      return;
+    }
+
+    // Caso 1: DMQ completo → analizar parroquias por administración
+    if (zonaSel === "ALL"){
+      deltaScopeTitle.textContent = "Parroquias con cambios de predios (DMQ completo)";
+
+      const zonesRef = DBref.data || {};
+      const zonesCur = DBcurr.data || {};
+
+      const refMap = {};
+      const curMap = {};
+
+      Object.keys(zonesRef).forEach(z => {
+        (zonesRef[z].parroquias || []).forEach(p => {
+          const key = `${z}||${p.name}`;
+          refMap[key] = (refMap[key] || 0) + (p.count || 0);
+        });
+      });
+
+      Object.keys(zonesCur).forEach(z => {
+        (zonesCur[z].parroquias || []).forEach(p => {
+          const key = `${z}||${p.name}`;
+          curMap[key] = (curMap[key] || 0) + (p.count || 0);
+        });
+      });
+
+      const allKeys = new Set([
+        ...Object.keys(refMap),
+        ...Object.keys(curMap)
+      ]);
+
+      const items = [];
+      allKeys.forEach(key => {
+        const [zona, parroquia] = key.split("||");
+        const base = refMap[key] || 0;
+        const curr = curMap[key] || 0;
+        const delta = curr - base;
+        if (delta === 0) return;
+        const pct = base > 0 ? (delta / base) * 100 : 0;
+        items.push({ zona, parroquia, delta, pct });
+      });
+
+      renderDeltaBlocks(items, deltaUpContainer, deltaDownContainer);
+      return;
+    }
+
+    // Caso 2: una administración y todas las parroquias
+    if (parrSel === "ALL"){
+      deltaScopeTitle.textContent = `Parroquias con cambios de predios en la Administración Zonal ${zonaSel}`;
+
+      const z = zonaSel;
+      const zonaRef = DBref.data[z] || {parroquias: []};
+      const zonaCur = DBcurr.data[z] || {parroquias: []};
+
+      const mapRef = {};
+      (zonaRef.parroquias || []).forEach(p => { mapRef[p.name] = p.count || 0; });
+
+      const mapCur = {};
+      (zonaCur.parroquias || []).forEach(p => { mapCur[p.name] = p.count || 0; });
+
+      const allParrs = new Set([
+        ...Object.keys(mapRef),
+        ...Object.keys(mapCur)
+      ]);
+
+      const items = [];
+      allParrs.forEach(name => {
+        const base = mapRef[name] || 0;
+        const curr = mapCur[name] || 0;
+        const delta = curr - base;
+        if (delta === 0) return;
+        const pct = base > 0 ? (delta / base) * 100 : 0;
+        items.push({ zona: z, parroquia: name, delta, pct });
+      });
+
+      renderDeltaBlocks(items, deltaUpContainer, deltaDownContainer);
+      return;
+    }
+
+    // Caso 3: parroquia específica
+    deltaScopeTitle.textContent = `Cambios en la parroquia ${parrSel} (${zonaSel})`;
+    deltaUpContainer.innerHTML = `<div style="font-size:13px;color:#6C757D;">La variación de esta parroquia se muestra en los indicadores superiores.</div>`;
+    deltaDownContainer.innerHTML = `<div style="font-size:13px;color:#6C757D;">(Seleccione “Todas las Parroquias” para ver el detalle completo por administración.)</div>`;
+  }
+
+  // --- Dashboard principal + delta ---
+  function updateDashboard(){
+    const DB = SNAPSHOTS[currentCutoff];
+    if (!DB) return;
+
+    // Actualizar info de corte en header
+    cutoffLabel.textContent = "Corte de información: " + (DB.cutoff_human || currentCutoff);
+    cutoffFootnote.textContent = DB.cutoff_human || currentCutoff;
+
+    const zonas = Object.keys(DB.data).sort();
+
+    // Guardar selección previa
+    const prevZona = selZona.value;
+    const prevParr = selParr.value;
+
+    // Rellenar selector de zona
+    selZona.innerHTML = '<option value="ALL">Todas las Administraciones</option>';
+    zonas.forEach(z => {
+      const op = document.createElement("option");
+      op.value = z; op.textContent = z;
+      selZona.appendChild(op);
+    });
+
+    if (zonas.includes(prevZona)) selZona.value = prevZona;
+    else selZona.value = "ALL";
+
+    // Reconstruir selector de parroquia según zona
+    const zonaSel = selZona.value;
+    if (zonaSel === "ALL"){
+      selParr.disabled = true;
+      selParr.innerHTML = '<option value="ALL">Todas las Parroquias</option>';
+      selParr.value = "ALL";
+    } else {
+      const dataZona = DB.data[zonaSel];
+      selParr.disabled = false;
+      selParr.innerHTML = '<option value="ALL">Todas las Parroquias</option>';
+      (dataZona.parroquias || [])
+        .slice()
+        .sort((a,b)=>b.count - a.count)
+        .forEach(p => {
+          const op = document.createElement("option");
+          op.value = p.name; op.textContent = p.name;
+          selParr.appendChild(op);
+        });
+
+      if (prevParr && prevParr !== "ALL" && parroquiaExists(DB, zonaSel, prevParr)) {
+        selParr.value = prevParr;
+      } else {
+        selParr.value = "ALL";
+      }
+    }
+
+    const parrSel = selParr.value;
+
+    // Construir chartData y totales
+    let chartData = [];
+    let totalC = 0;
+    let totalV = 0;
+    let titleChart = "";
+
+    if (zonaSel === "ALL"){
+      zonas.forEach(z => chartData.push({ label: z, val: DB.data[z].total, extra: DB.data[z].val }));
+      totalC = DB.global.count;
+      totalV = DB.global.val;
+      titleChart = "Distribución por Administración Zonal";
+      kpiTxt.textContent = "Distrito Metropolitano";
+    } else {
+      const dataZona = DB.data[zonaSel];
+      if (parrSel === "ALL"){
+        (dataZona.parroquias || []).forEach(p => chartData.push({ label: p.name, val: p.count, extra: p.val }));
+        totalC = dataZona.total || 0;
+        totalV = dataZona.val || 0;
+        titleChart = `Distribución por Parroquias - ${zonaSel}`;
+        kpiTxt.textContent = "Administración Zonal " + zonaSel;
+      } else {
+        (dataZona.parroquias || []).forEach(p => chartData.push({ label: p.name, val: p.count, extra: p.val }));
+        const pData = (dataZona.parroquias || []).find(p => p.name === parrSel);
+        totalC = pData ? (pData.count || 0) : 0;
+        totalV = pData ? (pData.val || 0) : 0;
+        titleChart = `Parroquia: ${parrSel} (${zonaSel})`;
+        kpiTxt.textContent = "Parroquia " + parrSel;
+      }
+    }
+
+    kpiCount.innerText = fmtNum(totalC);
+    kpiVal.innerText = fmtMoneyKpi(totalV);
+    kpiAvg.innerText = fmtAvgMoney(totalC > 0 ? (totalV / totalC) : 0);
+
+    // Métrica
+    const metricIsPredios = (currentMetric === "predios");
+    metricLabel.textContent = metricIsPredios ? "Número de predios" : "Avalúo total (USD)";
+
+    // Total de referencia para %
+    let totalMetricRef = 0;
+    let pctContextLabel = "";
+    if (zonaSel === "ALL") {
+      totalMetricRef = metricIsPredios ? DB.global.count : DB.global.val;
+      pctContextLabel = "del total del DMQ";
+    } else {
+      totalMetricRef = metricIsPredios ? (DB.data[zonaSel]?.total || 0) : (DB.data[zonaSel]?.val || 0);
+      pctContextLabel = "de la Administración Zonal " + zonaSel;
+    }
+
+    // Ordenar por métrica ascendente (impacto a la derecha)
+    chartData.sort((a,b) => {
+      const aM = metricIsPredios ? a.val : a.extra;
+      const bM = metricIsPredios ? b.val : b.extra;
+      return aM - bM;
+    });
+
+    const xVals = chartData.map(d => d.label);
+    const yVals = chartData.map(d => metricIsPredios ? d.val : d.extra);
+    const textVals = chartData.map(d => metricIsPredios ? fmtNum(d.val) : fmtMoneyCompact(d.extra));
+
+    const maxSelection = yVals.reduce((m, v) => Math.max(m, v), 0);
+    const maxTraceY = yVals.map(() => maxSelection);
+
+    const colors = chartData.map(d => {
+      const metricVal = metricIsPredios ? d.val : d.extra;
+      const isSelected = (parrSel !== "ALL" && d.label === parrSel);
+      const isDimmed = (parrSel !== "ALL" && !isSelected);
+      return colorForValue(metricVal, maxSelection, isSelected, isDimmed);
+    });
+    const finalOpacity = parrSel !== "ALL" ? 1.0 : 0.9;
+
+    const customDataVals = chartData.map(d => {
+      const predios = d.val;
+      const avaluo = d.extra;
+      const avgVal = predios > 0 ? avaluo / predios : 0;
+      const metricVal = metricIsPredios ? predios : avaluo;
+      const pct = totalMetricRef > 0 ? (metricVal / totalMetricRef) * 100 : 0;
+      return [avaluo, avgVal, pct, predios, pctContextLabel];
+    });
+
+    const backgroundTrace = {
+      type: 'bar',
+      orientation: 'v',
+      x: xVals,
+      y: maxTraceY,
+      hoverinfo: 'none',
+      showlegend: false,
+      marker: { color: '#E9ECEF', line: { width: 0 }, width: 0.4 }
+    };
+
+    const hoverTemplatePredios =
+      '<b>%{x}</b><br><br>' +
+      'Predios: <b>%{y:,.0f}</b><br>' +
+      'Avalúo Total: <b>$%{customdata[0]:,.0f}</b><br>' +
+      'Valor Promedio por Predio: <b>$%{customdata[1]:,.0f}</b><br>' +
+      'Aporta: <b>%{customdata[2]:.1f}%</b> %{customdata[4]}' +
+      '<extra></extra>';
+
+    const hoverTemplateAvaluo =
+      '<b>%{x}</b><br><br>' +
+      'Avalúo Total: <b>$%{y:,.0f}</b><br>' +
+      'Predios: <b>%{customdata[3]:,.0f}</b><br>' +
+      'Valor Promedio por Predio: <b>$%{customdata[1]:,.0f}</b><br>' +
+      'Aporta: <b>%{customdata[2]:.1f}%</b> %{customdata[4]}' +
+      '<extra></extra>';
+
+    const dataTrace = {
+      type: 'bar',
+      orientation: 'v',
+      x: xVals,
+      y: yVals,
+      text: textVals,
+      textposition: 'outside',
+      customdata: customDataVals,
+      showlegend: false,
+      opacity: finalOpacity,
+      marker: { color: colors, line: { width: 0.8, color: 'rgba(0,0,0,0.25)' }, width: 0.28 },
+      hovertemplate: metricIsPredios ? hoverTemplatePredios : hoverTemplateAvaluo
+    };
+
+    const layout = {
+      barmode: 'overlay',
+      bargap: 0.32,
+      transition: { duration: 500, easing: 'cubic-in-out' },
+      title: { text: titleChart, font: {family:'Inter', size:16, color:'var(--c-text)'} },
+      font: { family: 'Inter', color: 'var(--c-text-light)' },
+      margin: { l: 80, r: 30, t: 40, b: 260 },
+      xaxis: { 
+        title: { text: "Administración / Parroquia", standoff: 24 },
+        tickangle: -35,
+        automargin: true,
+        tickfont: { size: 11 },
+        gridcolor: "#E9ECEF",
+        zeroline: false,
+        showline: false
+      },
+      yaxis: { 
+        title: metricIsPredios ? "Número de Predios" : "Avalúo Total (USD)",
+        gridcolor: "#E9ECEF",
+        zeroline: false,
+        showline: false
+      },
+      height: 600,
+      paper_bgcolor: "rgba(0,0,0,0)",
+      plot_bgcolor: "rgba(0,0,0,0)"
+    };
+
+    Plotly.react('chart', [backgroundTrace, dataTrace], layout, { displayModeBar: false, responsive: true });
+
+    // --- Análisis multitemporal (delta) ---
+    if (multitemporalOn && compareCutoff && SNAPSHOTS[compareCutoff]){
+      panelDelta.style.display = "block";
+
+      const DBref = SNAPSHOTS[compareCutoff];
+
+      const baseTotals = computeSelectionTotals(DBref, zonaSel, parrSel);
+      const currTotals = computeSelectionTotals(DB, zonaSel, parrSel);
+
+      const baseCount = baseTotals.count;
+      const baseVal   = baseTotals.val;
+
+      const currCount = currTotals.count;
+      const currVal   = currTotals.val;
+
+      const baseAvg = baseCount > 0 ? baseVal / baseCount : 0;
+      const currAvg = currCount > 0 ? currVal / currCount : 0;
+
+      const deltaCount = currCount - baseCount;
+      const deltaVal   = currVal - baseVal;
+
+      const pctCount = baseCount > 0 ? (deltaCount / baseCount) * 100 : 0;
+      const pctVal   = baseVal   > 0 ? (deltaVal   / baseVal)   * 100 : 0;
+
+      const labelBase = LABELS[compareCutoff] || compareCutoff;
+      const labelCurr = LABELS[currentCutoff] || currentCutoff;
+
+      const clsCount = deltaCount >= 0 ? "positive" : "negative";
+      const signCount = deltaCount > 0 ? "+" : (deltaCount < 0 ? "−" : "±");
+      deltaPredMain.className = "kpi-delta-main " + clsCount;
+      deltaPredMain.textContent = `${signCount} ${Math.abs(deltaCount).toLocaleString("es-EC")} predios`;
+      deltaPredPct.textContent = `Cambio de ${pctCount.toFixed(1)}% respecto al corte ${labelBase}`;
+      deltaPredDetail.textContent = `De ${fmtNum(baseCount)} predios (${labelBase}) a ${fmtNum(currCount)} predios (${labelCurr}) en el ámbito de la selección actual.`;
+
+      const clsVal = deltaVal >= 0 ? "positive" : "negative";
+      const signVal = deltaVal > 0 ? "+" : (deltaVal < 0 ? "−" : "±");
+      deltaValMain.className = "kpi-delta-main " + clsVal;
+      deltaValMain.textContent = `${signVal} $${Math.abs(deltaVal).toLocaleString("es-EC", {maximumFractionDigits:0})}`;
+      deltaValPct.textContent = `Cambio de ${pctVal.toFixed(1)}% en el avalúo total respecto al corte ${labelBase}`;
+      deltaValDetail.textContent =
+        `Avalúo total: de $${baseVal.toLocaleString("es-EC",{maximumFractionDigits:0})} a `
+        + `$${currVal.toLocaleString("es-EC",{maximumFractionDigits:0})}. `
+        + `Valor promedio por predio: de ${fmtAvgMoney(baseAvg)} a ${fmtAvgMoney(currAvg)}.`;
+
+      // Bloques completos de parroquias con Δ ≠ 0
+      updateDeltaLists(DBref, DB, zonaSel, parrSel);
+
+    } else {
+      panelDelta.style.display = "none";
+    }
+  }
+
+  // --- Listeners ---
+  selCutoff.addEventListener("change", () => {
+    currentCutoff = selCutoff.value;
+    rebuildCompareSelector();
+    updateDashboard();
+  });
+
+  selCutoffCompare.addEventListener("change", () => {
+    compareCutoff = selCutoffCompare.value;
+    updateDashboard();
+  });
+
+  chkMultitemporal.addEventListener("change", (e) => {
+    multitemporalOn = e.target.checked;
+    panelCompareCutoff.style.display = multitemporalOn ? "block" : "none";
+    updateDashboard();
+  });
+
+  selZona.addEventListener("change", updateDashboard);
+  selParr.addEventListener("change", updateDashboard);
+
+  btnMetricPredios.addEventListener("click", function(){
+    currentMetric = "predios";
+    btnMetricPredios.classList.add("active");
+    btnMetricAvaluo.classList.remove("active");
+    updateDashboard();
+  });
+
+  btnMetricAvaluo.addEventListener("click", function(){
+    currentMetric = "avaluo";
+    btnMetricAvaluo.classList.add("active");
+    btnMetricPredios.classList.remove("active");
+    updateDashboard();
+  });
+
+  // --- Init ---
+  initCutoffSelectors();
+  updateDashboard();
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,307 @@
+
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Dashboard PUGS – Usos del Suelo</title>
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+
+<style>
+body { margin:0; font-family:Inter,Arial,sans-serif; background:#f4f6f8; }
+.container { max-width:1200px; margin:auto; padding:24px; }
+
+.header {
+  background:white;
+  padding:22px 26px;
+  border-radius:14px;
+  border-left:8px solid #27367c;
+}
+.header h2 {
+  margin:0;
+  font-size:26px;
+  color:#27367c;
+  font-weight:800;
+}
+.header .sub {
+  margin-top:8px;
+  font-size:15px;
+  color:#555;
+}
+
+.filters {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  margin:18px 0;
+}
+
+.card {
+  background:#fff;
+  padding:16px;
+  border-radius:12px;
+  border-top:4px solid #27367c;
+}
+
+select {
+  width:100%;
+  margin-top:10px;
+  padding:10px;
+  border-radius:8px;
+  background:#f1f3f5;
+}
+
+.chart, .delta {
+  background:white;
+  padding:18px;
+  border-radius:14px;
+  margin-top:18px;
+}
+
+/* =============================
+   BOTÓN ACTIVADOR
+   ============================= */
+.delta-toggle {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 18px;
+  background:#eef1fb;
+  border:2px solid #27367c;
+  border-radius:12px;
+  cursor:pointer;
+  font-weight:600;
+  color:#27367c;
+  transition:all .2s ease;
+  margin-top:18px;
+}
+.delta-toggle:hover {
+  background:#27367c;
+  color:white;
+}
+
+/* =============================
+   SELECTOR DIRECCIÓN
+   ============================= */
+.delta-dir {
+  display:inline-flex;
+  border-radius:999px;
+  background:#e9ecef;
+  padding:4px;
+  margin-bottom:12px;
+}
+.delta-dir button {
+  border:none;
+  background:transparent;
+  padding:6px 14px;
+  border-radius:999px;
+  cursor:pointer;
+  font-size:13px;
+  color:#555;
+}
+.delta-dir button.active {
+  background:#27367c;
+  color:white;
+}
+
+/* =============================
+   TEXTO ANALÍTICO
+   ============================= */
+.delta-list {
+  margin-top:14px;
+}
+.delta-row {
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:12px;
+  padding:6px 0;
+  font-size:14px;
+  border-bottom:1px dashed #e5e7eb;
+}
+.delta-row:last-child { border-bottom:none; }
+
+.delta-val.up { color:#198754; }
+.delta-val.down { color:#dc3545; }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<div class="header">
+  <h2 id="title">🏙️ Usos del Suelo</h2>
+  <div class="sub" id="total_ha">Total: -- ha</div>
+</div>
+
+<div class="filters">
+  <div class="card">
+    <label>PUGS</label>
+    <select id="sel_pugs">
+      <option value="2024">PUGS 2024</option>
+      <option value="2021">PUGS 2021</option>
+    </select>
+  </div>
+  <div class="card">
+    <label>Clasificación del suelo</label>
+    <select id="sel_clas">
+      <option value="Todos">Todas</option>
+      <option value="Urbano">Urbano</option>
+      <option value="Rural">Rural</option>
+    </select>
+  </div>
+</div>
+
+<div class="chart">
+  <div id="chart"></div>
+</div>
+
+<div class="delta-toggle" id="btn_delta">
+  🔁 Analizar cambios multitemporales entre PUGS
+</div>
+
+<div class="delta" id="delta_panel" style="display:none;">
+
+  <div class="delta-dir">
+    <button id="dir_24_21" class="active">2024 → 2021</button>
+    <button id="dir_21_24">2021 → 2024</button>
+  </div>
+
+  <div id="delta_chart" style="height:420px;"></div>
+  <div id="delta_text" class="delta-list"></div>
+</div>
+
+</div>
+
+<script>
+const DB = {"2024": {"meta": {"key": "2024", "title": "Plan de Uso y Gestión del Suelo 2024", "x_label": "Superficie (hectáreas)"}, "data": {"Todos": [{"uso": "Protección Ecológica", "key": "proteccion ecologica", "ha": 280734.02}, {"uso": "Recurso Natural Renovable", "key": "recurso natural renovable", "ha": 85931.89}, {"uso": "Residencial urbano", "key": "residencial urbano", "ha": 29004.83}, {"uso": "Residencial rural", "key": "residencial rural", "ha": 7817.39}, {"uso": "Equipamiento", "key": "equipamiento", "ha": 7094.65}, {"uso": "Suelo De Reserva", "key": "suelo de reserva", "ha": 2443.95}, {"uso": "Múltiple", "key": "multiple", "ha": 2049.86}, {"uso": "Recurso Natural No Renovable", "key": "recurso natural no renovable", "ha": 1885.22}, {"uso": "Industrial", "key": "industrial", "ha": 1668.51}, {"uso": "Protección Urbana Patrimonial", "key": "proteccion urbana patrimonial", "ha": 560.65}, {"uso": "Comercios Y Servicios Especializados", "key": "comercios y servicios especializados", "ha": 528.15}, {"uso": "Protección Arqueológica", "key": "proteccion arqueologica", "ha": 156.06}, {"uso": "Múltiple-Industrial Mediano Impacto-Industrial Alto Impacto", "key": "multiple-industrial mediano impacto-industrial alto impacto", "ha": 146.02}], "Urbano": [{"uso": "Residencial urbano", "key": "residencial urbano", "ha": 29004.83}, {"uso": "Equipamiento", "key": "equipamiento", "ha": 5315.37}, {"uso": "Protección Ecológica", "key": "proteccion ecologica", "ha": 3044.47}, {"uso": "Múltiple", "key": "multiple", "ha": 2049.86}, {"uso": "Industrial", "key": "industrial", "ha": 1668.51}, {"uso": "Protección Urbana Patrimonial", "key": "proteccion urbana patrimonial", "ha": 560.65}, {"uso": "Comercios Y Servicios Especializados", "key": "comercios y servicios especializados", "ha": 528.15}, {"uso": "Múltiple-Industrial Mediano Impacto-Industrial Alto Impacto", "key": "multiple-industrial mediano impacto-industrial alto impacto", "ha": 146.02}, {"uso": "Protección Arqueológica", "key": "proteccion arqueologica", "ha": 40.66}], "Rural": [{"uso": "Protección Ecológica", "key": "proteccion ecologica", "ha": 277689.55}, {"uso": "Recurso Natural Renovable", "key": "recurso natural renovable", "ha": 85931.89}, {"uso": "Residencial rural", "key": "residencial rural", "ha": 7817.39}, {"uso": "Suelo De Reserva", "key": "suelo de reserva", "ha": 2443.95}, {"uso": "Recurso Natural No Renovable", "key": "recurso natural no renovable", "ha": 1885.22}, {"uso": "Equipamiento", "key": "equipamiento", "ha": 1779.27}, {"uso": "Protección Arqueológica", "key": "proteccion arqueologica", "ha": 115.39}]}}, "2021": {"meta": {"key": "2021", "title": "Plan de Uso y Gestión del Suelo 2021", "x_label": "Superficie (hectáreas)"}, "data": {"Todos": [{"uso": "Protección ecológica", "key": "proteccion ecologica", "ha": 280779.17}, {"uso": "Recurso natural renovable", "key": "recurso natural renovable", "ha": 86053.17}, {"uso": "Residencial urbano", "key": "residencial urbano", "ha": 29146.05}, {"uso": "Residencial rural", "key": "residencial rural", "ha": 7682.32}, {"uso": "Equipamiento", "key": "equipamiento", "ha": 6943.35}, {"uso": "Suelo de reserva", "key": "suelo de reserva", "ha": 2461.95}, {"uso": "Múltiple", "key": "multiple", "ha": 2084.86}, {"uso": "Recurso natural no renovable", "key": "recurso natural no renovable", "ha": 1885.22}, {"uso": "Industrial", "key": "industrial", "ha": 1798.96}, {"uso": "Protección urbana patrimonial", "key": "proteccion urbana patrimonial", "ha": 562.37}, {"uso": "Comercios y servicios especializados", "key": "comercios y servicios especializados", "ha": 467.7}, {"uso": "Protección arqueológica", "key": "proteccion arqueologica", "ha": 156.06}], "Urbano": [{"uso": "Residencial urbano", "key": "residencial urbano", "ha": 29146.05}, {"uso": "Equipamiento", "key": "equipamiento", "ha": 5329.51}, {"uso": "Protección ecológica", "key": "proteccion ecologica", "ha": 2928.39}, {"uso": "Múltiple", "key": "multiple", "ha": 2084.86}, {"uso": "Industrial", "key": "industrial", "ha": 1798.96}, {"uso": "Protección urbana patrimonial", "key": "proteccion urbana patrimonial", "ha": 562.37}, {"uso": "Comercios y servicios especializados", "key": "comercios y servicios especializados", "ha": 467.7}, {"uso": "Protección arqueológica", "key": "proteccion arqueologica", "ha": 40.66}], "Rural": [{"uso": "Protección ecológica", "key": "proteccion ecologica", "ha": 277850.78}, {"uso": "Recurso natural renovable", "key": "recurso natural renovable", "ha": 86053.17}, {"uso": "Residencial rural", "key": "residencial rural", "ha": 7682.32}, {"uso": "Suelo de reserva", "key": "suelo de reserva", "ha": 2461.95}, {"uso": "Recurso natural no renovable", "key": "recurso natural no renovable", "ha": 1885.22}, {"uso": "Equipamiento", "key": "equipamiento", "ha": 1613.84}, {"uso": "Protección arqueológica", "key": "proteccion arqueologica", "ha": 115.39}]}}};
+let currentPugs="2024", currentClas="Todos";
+let deltaVisible=false;
+let deltaDir="2024-2021";
+
+/* =============================
+   GRÁFICO PRINCIPAL
+   ============================= */
+function colorScale(v){
+  const m=Math.max(...v,1);
+  return v.map(x=>`rgba(39,54,124,${(0.35+0.65*(x/m)).toFixed(3)})`);
+}
+
+function renderChart(){
+  const rows=DB[currentPugs].data[currentClas];
+  const x=rows.map(r=>r.ha);
+  const y=rows.map(r=>r.uso);
+
+  document.getElementById("title").innerText =
+    "🏙️ " + DB[currentPugs].meta.title;
+
+  document.getElementById("total_ha").innerText =
+    "Total: " + x.reduce((a,b)=>a+b,0).toFixed(2) + " ha";
+
+  Plotly.react("chart",[{
+    type:"bar",
+    orientation:"h",
+    x:x,
+    y:y,
+    text:x.map(v=>v.toFixed(2)+" ha"),
+    textposition:"auto",
+    marker:{color:colorScale(x)}
+  }],{
+    margin:{l:260,r:40,t:20,b:40},
+    yaxis:{autorange:"reversed"},
+    height:620
+  });
+}
+
+/* =============================
+   ANÁLISIS MULTITEMPORAL
+   ============================= */
+function renderDelta(){
+  const [curr,base]=deltaDir.split("-");
+  const A={},B={};
+
+  DB[curr].data[currentClas].forEach(r=>A[r.key]=r);
+  DB[base].data[currentClas].forEach(r=>B[r.key]=r);
+
+  const lbl=[], val=[];
+  let textHtml = `
+  <div style="
+    font-size:15px;
+    color:#27367c;
+    font-weight:700;
+    margin-bottom:8px;
+  ">
+    Análisis multitemporal PUGS ${base}–${curr}
+  </div>
+`;
+
+  Object.keys(A).forEach(k=>{
+    if(!B[k]) return;
+    const d=A[k].ha-B[k].ha;
+    if(Math.abs(d)<0.01) return;
+
+    lbl.push(A[k].uso);
+    val.push(d);
+
+    textHtml += `
+      <div class="delta-row">
+        <div>${A[k].uso}</div>
+        <div class="delta-val ${d>0?'up':'down'}">
+          ${d>0?'+':''}${d.toFixed(2)} ha
+        </div>
+      </div>`;
+  });
+
+  Plotly.react("delta_chart",[{
+    type:"bar",
+    orientation:"h",
+    x:val,
+    y:lbl,
+    text:val.map(v=>(v>0?'+':'')+v.toFixed(2)+" ha"),
+    textposition:"auto",
+    marker:{color:val.map(v=>v>0?"#198754":"#dc3545")}
+  }],{
+    margin:{l:260,r:40,t:20,b:40},
+    xaxis:{zeroline:true},
+    yaxis:{autorange:"reversed"},
+    height:420
+  });
+
+  document.getElementById("delta_text").innerHTML = textHtml;
+}
+
+/* =============================
+   EVENTOS
+   ============================= */
+document.getElementById("btn_delta").onclick=()=>{
+  deltaVisible=!deltaVisible;
+  document.getElementById("delta_panel").style.display =
+    deltaVisible?"block":"none";
+  if(deltaVisible) renderDelta();
+};
+
+document.getElementById("dir_24_21").onclick=()=>{
+  deltaDir="2024-2021";
+  document.getElementById("dir_24_21").classList.add("active");
+  document.getElementById("dir_21_24").classList.remove("active");
+  renderDelta();
+};
+
+document.getElementById("dir_21_24").onclick=()=>{
+  deltaDir="2021-2024";
+  document.getElementById("dir_21_24").classList.add("active");
+  document.getElementById("dir_24_21").classList.remove("active");
+  renderDelta();
+};
+
+document.getElementById("sel_pugs").onchange=e=>{
+  currentPugs=e.target.value;
+  renderChart();
+};
+document.getElementById("sel_clas").onchange=e=>{
+  currentClas=e.target.value;
+  renderChart();
+};
+
+renderChart();
+</script>
+</body>
+</html>
